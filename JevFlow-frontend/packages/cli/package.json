@@ -1,0 +1,20 @@
+{
+  "name": "@jevflow/cli",
+  "version": "1.0.0",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "syncContexts": "node dist/index.js",
+    "buildResources": "npm run build && npm run syncContexts"
+  },
+  "dependencies": {
+    "axios": "^1.4.0",
+    "openapi-typescript": "^6.0.0",
+    "prettier": "^2.8.0"
+  },
+  "devDependencies": {
+    "@types/node": "^16.11.0",
+    "ts-node": "^10.9.1",
+    "typescript": "^5.0.0"
+  }
+}

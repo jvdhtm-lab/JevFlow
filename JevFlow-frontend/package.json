@@ -1,0 +1,22 @@
+{
+  "name": "jevflow-frontend",
+  "version": "1.0.0",
+  "description": "JevFlow frontend monorepo",
+  "scripts": {
+    "start": "concurrently --kill-others \"npm start --prefix apps/macaco\"",
+    "buildResource": "npm run build --prefix packages/resources"
+  },
+  "workspaces": [
+    "./packages/*",
+    "./apps/macaco",
+    "./apps/trampoline"
+  ],
+  "devDependencies": {
+    "@types/node": "^16.11.0"
+  },
+  "dependencies": {
+    "concurrently": "^7.3.0",
+    "rimraf": "^3.0.2"
+  },
+  "license": "ISC"
+}

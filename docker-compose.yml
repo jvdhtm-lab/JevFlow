@@ -1,0 +1,99 @@
+version: '3.8'
+
+services:
+  jevflow_db:
+    image: postgres:15
+    container_name: jevflow_db
+    restart: always
+    environment:
+      POSTGRES_DB: 'jevflow'
+      POSTGRES_USER: 'user'
+      POSTGRES_PASSWORD: 'admin'
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d jevflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  jevflow_redis:
+    image: redis:7-alpine
+    container_name: jevflow_redis
+    restart: always
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  django:
+    build:
+      context: ./JevCore
+      dockerfile: dockerfile
+    container_name: jevflow_django
+    ports:
+      - "8081:8000"
+    depends_on:
+      jevflow_db:
+        condition: service_healthy
+      jevflow_redis:
+        condition: service_healthy
+    environment:
+      - DJANGO_SETTINGS_MODULE=JevCore.settings
+      - DEV=1
+      - DB_HOST=jevflow_db
+      - REDIS_HOST=jevflow_redis
+      - JEV_MODEL=jev-latest
+    command: >
+      sh -c "
+        echo '=== Making Migrations ===' &&
+        python manage.py makemigrations base identity_api integrations decisions jev_engine audit notifications --noinput || true &&
+        echo '=== Running Migrations ===' &&
+        python manage.py migrate --noinput &&
+        echo '=== Creating Superuser ===' &&
+        python create_superuser.py &&
+        echo '=== Generating Fake Data ===' &&
+        python manage.py generate_fake_data --clear &&
+        echo '=== Starting Server ===' &&
+        python manage.py runserver 0.0.0.0:8000
+      "
+    volumes:
+      - ./JevCore:/JevCore
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/swagger.json')\" || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+
+  app:
+    image: node:18-alpine
+    container_name: jevflow_app
+    ports:
+      - "4001:4000"
+    environment:
+      - API_URL=http://django:8000
+      - BASE_URL=http://django:8000
+      - PORT=4000
+      - REDIS_URL=redis://jevflow_redis:6379
+      - CLIENT_APP_PATH=/app/apps/trampoline/dist
+      - CLIENT_INDEX_PATH=/app/apps/trampoline/dist/index.html
+    volumes:
+      - ./JevFlow-frontend:/app
+      - /app/node_modules
+      - /app/apps/macaco/node_modules
+      - /app/apps/trampoline/node_modules
+      - /app/packages/cli/node_modules
+      - /app/packages/resources/node_modules
+      - /app/packages/user-interfaces/node_modules
+    working_dir: /app
+    command: >
+      sh -c "npm install && cd apps/macaco && npm start"
+
+volumes:
+  pgdata:
