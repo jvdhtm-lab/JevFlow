@@ -238,10 +238,15 @@ Configure the social login providers available on the login page.
 - Shows whether the provider is configured.
 - Fields:
   - **Client ID**
-  - **Client secret** (write-only; leaving blank keeps the existing secret)
+  - **Client secret** (write-only in the UI; leaving blank keeps the existing secret)
   - **Active** toggle
 - **Save** button stores the keys in Django.
 - **Important:** after changing OAuth keys, restart the macaco proxy container so Passport picks them up at boot.
+- In each provider's console, register the callback URL as:
+  ```
+  <OAUTH_CALLBACK_BASE_URL>/auth/<provider>/callback
+  ```
+  The default `OAUTH_CALLBACK_BASE_URL` is `http://localhost:5176`, so Google uses `http://localhost:5176/auth/google/callback`.
 
 ---
 

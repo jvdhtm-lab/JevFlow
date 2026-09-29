@@ -289,12 +289,13 @@ Skipping step 1 means trampoline silently serves the stale bundle.
 ### Social login
 
 - Supported providers: google, github, x, outlook (azure-ad), slack.
-- OAuth client keys live in Django `identity_api.OAuthProvider` (one row per provider, seeded inactive; `client_secret` write-only).
+- OAuth client keys live in Django `identity_api.OAuthProvider` (one row per provider, seeded active with empty keys). `client_secret` is readable by the macaco service token so Passport can load it at boot.
 - Macaco fetches provider keys server-to-server at boot using `API_TOKEN` and falls back to env vars only if Django has no keys.
-- The login page shows only providers returned by public `GET /auth/providers/`.
+- The login page shows only providers returned by public `GET /auth/providers/` where `configured=true`.
 - `POST /auth/social/` (service-token only) creates/updates the user, links `SocialAccount`, creates tenant `Account` + Owner RWD `Role` rows for first login, and returns `{message, token, user}`.
 - X exposes no email → macaco synthesizes `<username>@x.local`; same for GitHub private emails.
 - Provider keys are managed at `/settings` (`OAuthSettings`). Restart macaco after changing keys because strategies load at boot.
+- OAuth callback URLs are built from `OAUTH_CALLBACK_BASE_URL` in `apps/macaco/.env` (default `http://localhost:5176`). Register that base URL + `/auth/<provider>/callback` in each provider's console.
 
 ---
 
