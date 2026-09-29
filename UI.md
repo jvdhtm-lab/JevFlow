@@ -81,14 +81,14 @@ All numbers are live and pulled from the backend.
 
 **Route:** `/integrations`
 
-Integrations are the external systems JevFlow talks to (Jira, GitHub, Slack, Microsoft Teams, AWS, Codex, VHRS, etc.).
+Integrations are the external systems JevFlow talks to, grouped into three categories: **LLM**, **SaaS**, and **Messaging** (e.g. Jira, GitHub, AWS, Slack, Microsoft Teams, Codex, VHRS).
 
 - **Table / List tabs** — switch between a tabular view and a list view of integrations.
 - **Add Integration** button — opens a right-side drawer with a form to create a new integration.
 - Each integration record stores:
   - Name and description
   - Purpose (Action/Trigger is the main one)
-  - Integration type
+  - Integration type (`llm`, `saas`, or `messaging`)
   - Base URL
   - Connection status
   - Credentials hint

@@ -81,7 +81,7 @@ docker exec -e DEV=1 jevflow_django python manage.py generate_fake_data --clear 
 Seeds:
 
 - Accounts, users (local + social), and roles.
-- Integrations: Jira, GitHub, Slack, Teams, AWS, Codex, and a **VHRS** generic-webhook integration.
+- Integrations: examples for each type — **LLM** (Codex), **SaaS** (Jira, GitHub, AWS, VHRS), and **Messaging** (Slack, Teams).
 - Webhook endpoints: inbound + outbound per integration, plus extra VHRS event hooks.
 - Approval tools: email/message channels per integration, plus VHRS-specific tools.
 - Decision maps: Jira triage, manual review router, PR auto-review, incident escalation, **VHRS Leave Approval**, and **VHRS New Hire Onboarding**.

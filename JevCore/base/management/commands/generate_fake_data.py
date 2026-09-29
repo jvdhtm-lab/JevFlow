@@ -168,15 +168,13 @@ class Command(BaseCommand):
     def create_integrations(self, account, users):
         owner = users[0]
         specs = [
-            ('jira', 'Jira', 'https://example.atlassian.net'),
-            ('github', 'GitHub', 'https://api.github.com'),
-            ('slack', 'Slack', 'https://slack.com/api'),
-            ('teams', 'Teams', 'https://graph.microsoft.com'),
-            ('aws', 'AWS', 'https://aws.amazon.com'),
-            ('codex', 'Codex', 'https://codex.example.com'),
-            # VHRS is the reference HRIS we are wiring up. Use generic_webhook
-            # as the type because VHRS is not in INTEGRATION_TYPE_CHOICES yet.
-            ('generic_webhook', 'VHRS', 'http://localhost:8080'),
+            ('saas', 'Jira', 'https://example.atlassian.net'),
+            ('saas', 'GitHub', 'https://api.github.com'),
+            ('messaging', 'Slack', 'https://slack.com/api'),
+            ('messaging', 'Teams', 'https://graph.microsoft.com'),
+            ('saas', 'AWS', 'https://aws.amazon.com'),
+            ('llm', 'Codex', 'https://codex.example.com'),
+            ('saas', 'VHRS', 'http://localhost:8080'),
         ]
         integrations = []
         for itype, name, base_url in specs:
@@ -204,8 +202,9 @@ class Command(BaseCommand):
 
         endpoints = []
         source_map = {
-            'jira': 'jira', 'github': 'github', 'slack': 'slack',
-            'teams': 'teams', 'aws': 'ci', 'codex': 'generic',
+            'saas': 'generic',
+            'messaging': 'messaging',
+            'llm': 'generic',
         }
         for integration in integrations:
             src = source_map.get(integration.integration_type, 'generic')
@@ -345,10 +344,10 @@ class Command(BaseCommand):
     def create_decision_maps(self, account, integrations, tools=None):
         tools = tools or []
         maps = []
-        jira = next((i for i in integrations if i.integration_type == 'jira'), integrations[0])
-        github = next((i for i in integrations if i.integration_type == 'github'), integrations[0])
+        jira = next((i for i in integrations if i.name.startswith('Jira')), integrations[0])
+        github = next((i for i in integrations if i.name.startswith('GitHub')), integrations[0])
         slack = next((i for i in integrations
-                      if i.integration_type in ('slack', 'slack_app', 'teams')),
+                      if i.name.startswith('Slack') or i.name.startswith('Teams')),
                      integrations[0])
         vhrs = next((i for i in integrations if i.name.startswith('VHRS')), None)
 

@@ -177,20 +177,7 @@ export interface Integration {
   name?: string | null;
   description?: string | null;
   purpose?: 'user_auth' | 'action_trigger';
-  integration_type?:
-    | 'jira'
-    | 'github'
-    | 'gitlab'
-    | 'slack'
-    | 'teams'
-    | 'aws'
-    | 'gcp'
-    | 'azure_cloud'
-    | 'codex'
-    | 'openai_codex'
-    | 'slack_app'
-    | 'outlook'
-    | 'generic_webhook';
+  integration_type?: 'llm' | 'saas' | 'messaging';
   base_url?: string | null;
   connection_status?: 'connected' | 'disconnected' | 'error' | 'pending';
   config?: Record<string, unknown> | null;

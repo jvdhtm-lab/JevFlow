@@ -1547,24 +1547,17 @@ const DecisionMapEditor: React.FC = () => {
                   label="Integration (LLM endpoint)"
                   value={cfg?.integration ? String(cfg.integration) : ""}
                   onChange={(e) => setLlmIntegration(e.target.value)}
-                  helperText="base_url + optional path when no hook is bound"
+                  helperText="Only LLM integrations are shown"
                 >
                   <MenuItem value="">— none —</MenuItem>
-                  {integrationList.map((i: any) => (
-                    <MenuItem key={i.id} value={String(i.id)}>
-                      {i.name}
-                    </MenuItem>
-                  ))}
+                  {integrationList
+                    .filter((i: any) => i.integration_type === "llm")
+                    .map((i: any) => (
+                      <MenuItem key={i.id} value={String(i.id)}>
+                        {i.name}
+                      </MenuItem>
+                    ))}
                 </TextField>
-                <TextField
-                  label="Path (with integration)"
-                  fullWidth
-                  size="small"
-                  margin="normal"
-                  value={cfg?.path || ""}
-                  onChange={(e) => updateConfig({ ...cfg, path: e.target.value })}
-                  helperText="e.g. /v1/chat/completions (appended to integration base_url)"
-                />
                 <TextField
                   label="Temperature"
                   fullWidth

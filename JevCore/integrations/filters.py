@@ -20,7 +20,7 @@ class IntegrationFilter(django_filters.FilterSet):
         help_text='Case-insensitive substring match on integration name.')
     integration_type = django_filters.ChoiceFilter(
         choices=INTEGRATION_TYPE_CHOICES, label='Integration type',
-        help_text='Exact type: jira, github, gitlab, slack, teams, aws, gcp, azure_cloud, codex, outlook, generic_webhook, ...')
+        help_text='Exact type: llm, saas or messaging.')
     purpose = django_filters.ChoiceFilter(
         choices=INTEGRATION_PURPOSE_CHOICES, label='Purpose',
         help_text='Exact purpose: user_auth (login providers, unrelated to webhooks) or action_trigger (external systems maps talk to).')

@@ -36,19 +36,9 @@ INTEGRATION_PURPOSE_CHOICES = (
 )
 
 INTEGRATION_TYPE_CHOICES = (
-    ('jira', 'Jira'),
-    ('github', 'GitHub'),
-    ('gitlab', 'GitLab'),
-    ('slack', 'Slack'),
-    ('teams', 'Microsoft Teams'),
-    ('aws', 'AWS'),
-    ('gcp', 'GCP'),
-    ('azure_cloud', 'Azure Cloud'),
-    ('codex', 'Codex'),
-    ('openai_codex', 'OpenAI Codex'),
-    ('slack_app', 'Slack App'),
-    ('outlook', 'Outlook'),
-    ('generic_webhook', 'Generic Webhook'),
+    ('llm', 'LLM'),
+    ('saas', 'SaaS'),
+    ('messaging', 'Messaging'),
 )
 
 INTEGRATION_STATUS_CHOICES = (
