@@ -4,7 +4,7 @@ The YAML document is the canonical portable form of a decision map:
 
     version: 1.0.0
     name: Jira triage
-    trigger_source: webhook
+    category: webhook
     nodes:
       - key: trigger
         type: trigger
@@ -64,7 +64,7 @@ def map_to_doc(decision_map):
     return {
         'version': decision_map.version or SPEC_VERSION,
         'name': decision_map.name,
-        'trigger_source': decision_map.trigger_source,
+        'category': decision_map.category,
         'nodes': nodes,
         'edges': edges,
     }

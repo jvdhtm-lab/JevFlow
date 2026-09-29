@@ -133,7 +133,7 @@ The page shows Table/List tabs and an *Add Approval tool* drawer.
 
 The map list shows every decision flow in the tenant.
 
-- Columns: Name, Trigger source, Version, Active status, YAML size.
+- Columns: Name, Category, Version, Active status, YAML size.
 - **New map** button — creates a blank map and immediately opens the graphical editor.
 - **Open editor** button on each row — navigates to `/maps/:id`.
 - **Delete** button — removes the map and all its nodes/edges after confirmation.
@@ -148,7 +148,7 @@ The editor is a ReactFlow canvas where you design the decision flow.
 
 | Node | Purpose |
 |---|---|
-| **Trigger** | Where the run starts (webhook, manual, schedule, event). |
+| **Trigger** | Where the run starts. Its `event` field is the real event name the map listens for (e.g. `employee.hired`). The map-level **Category** field is the high-level trigger type: `webhook`, `manual`, `schedule`, or `event`. |
 | **Rule** | A yes/no guard using a `noul` belief score. |
 | **Classification** | Picks one category from options with keyword matching. |
 | **Prioritization** | Scores input against weighted criteria and returns a level (high/medium/low). |

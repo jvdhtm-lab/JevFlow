@@ -309,7 +309,7 @@ const DecisionMapEditor: React.FC = () => {
   const [edges, setEdges, onEdgesChange] = useEdgesState<MapEdgeData>([]);
   const [mapName, setMapName] = useState(`Decision Map ${id || ""}`);
   const [mapVersion, setMapVersion] = useState("1.0.0");
-  const [mapTrigger, setMapTrigger] = useState("manual");
+  const [mapCategory, setMapCategory] = useState("manual");
   const [specYaml, setSpecYaml] = useState("");
   const [yamlOpen, setYamlOpen] = useState(false);
   const [sideTab, setSideTab] = useState(0);
@@ -367,7 +367,7 @@ const DecisionMapEditor: React.FC = () => {
     const doc = {
       version: mapVersion || "1.0.0",
       name: mapName,
-      trigger_source: mapTrigger,
+      category: mapCategory,
       nodes: nodes.map((n) => ({
         key: n.data.key,
         type: n.data.nodeType,
@@ -386,7 +386,7 @@ const DecisionMapEditor: React.FC = () => {
     const out: string[] = [];
     emitYamlLines(doc, 0, out);
     return out.join("\n");
-  }, [nodes, edges, mapName, mapVersion, mapTrigger, keyOf]);
+  }, [nodes, edges, mapName, mapVersion, mapCategory, keyOf]);
 
   const reloadFromServer = useCallback(async () => {
     setLoading(true);
@@ -403,7 +403,7 @@ const DecisionMapEditor: React.FC = () => {
       if (mapObj?.name) setMapName(mapObj.name);
       if (mapObj?.integration) setMapIntegrationId(Number(mapObj.integration));
       if (mapObj?.version) setMapVersion(mapObj.version);
-      if (mapObj?.trigger_source) setMapTrigger(mapObj.trigger_source);
+      if (mapObj?.category) setMapCategory(mapObj.category);
       if (mapObj?.spec_yaml) {
         setSpecYaml(mapObj.spec_yaml);
         setYamlDraft(mapObj.spec_yaml);
@@ -993,7 +993,7 @@ const DecisionMapEditor: React.FC = () => {
           <Typography variant="h6" sx={{ fontWeight: 700 }}>
             {mapName}
           </Typography>
-          <Chip size="small" label={mapTrigger} variant="outlined" sx={{ height: 22 }} />
+          <Chip size="small" label={mapCategory} variant="outlined" sx={{ height: 22 }} />
           <Chip size="small" label={`${nodes.length} nodes · ${edges.length} edges`} variant="outlined" sx={{ height: 22 }} />
           {dirty && <Chip size="small" label="unsaved changes" color="warning" />}
           <Box sx={{ flexGrow: 1 }} />
@@ -1171,11 +1171,59 @@ const DecisionMapEditor: React.FC = () => {
         {sideTab === 0 && (
           <Box sx={{ p: 2.5, overflowY: "auto" }}>
         {!selectedNode && !selectedEdge && (
-          <Box sx={{ textAlign: "center", color: "text.secondary", py: 6, px: 2 }}>
-            <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 0.5, color: "text.primary" }}>
-              Nothing selected
+          <Box sx={{ py: 2, px: 2 }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 2, color: "text.primary" }}>
+              Map details
             </Typography>
-            <Typography variant="body2">
+            <TextField
+              label="Name"
+              fullWidth
+              size="small"
+              margin="normal"
+              value={mapName}
+              onChange={(e) => { setMapName(e.target.value); markDirty(); }}
+            />
+            <TextField
+              label="Version"
+              fullWidth
+              size="small"
+              margin="normal"
+              value={mapVersion}
+              onChange={(e) => { setMapVersion(e.target.value); markDirty(); }}
+            />
+            <TextField
+              select
+              label="Category"
+              fullWidth
+              size="small"
+              margin="normal"
+              value={mapCategory}
+              onChange={(e) => { setMapCategory(e.target.value); markDirty(); }}
+              helperText="How this map is triggered"
+            >
+              {["manual", "webhook", "schedule", "event"].map((c) => (
+                <MenuItem key={c} value={c}>
+                  {c}
+                </MenuItem>
+              ))}
+            </TextField>
+            <Button
+              fullWidth
+              variant="contained"
+              size="small"
+              sx={{ mt: 2 }}
+              onClick={async () => {
+                try {
+                  await mapReq.saveItem(String(mapId), { name: mapName, version: mapVersion, category: mapCategory });
+                  setDirty(false);
+                } catch (e: any) {
+                  setLoadError(e?.response?.data?.detail || e?.message || "Save failed");
+                }
+              }}
+            >
+              Save map details
+            </Button>
+            <Typography variant="body2" sx={{ mt: 3, color: "text.secondary" }}>
               Select a node or edge to edit it. Drag nodes to move them, drag between handles to connect.
             </Typography>
           </Box>
@@ -1335,21 +1383,15 @@ const DecisionMapEditor: React.FC = () => {
 
             {ntype === "trigger" && (
               <TextField
-                select
                 label="Event"
                 fullWidth
                 size="small"
                 margin="normal"
-                value={cfg?.event || "manual"}
+                value={cfg?.event || ""}
                 onChange={(e) => setEvent(e.target.value)}
-                helperText="How this map is triggered"
-              >
-                {["manual", "webhook", "schedule", "event"].map((ev) => (
-                  <MenuItem key={ev} value={ev}>
-                    {ev}
-                  </MenuItem>
-                ))}
-              </TextField>
+                helperText="Real event name this trigger responds to, e.g. employee.hired or issue.created"
+                placeholder="employee.hired"
+              />
             )}
 
             {ntype === "approval" && (

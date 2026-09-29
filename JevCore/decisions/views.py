@@ -35,7 +35,7 @@ class DecisionMapViewSet(CreateListMixin, BaseViewSet):
     serializer_class = DecisionMapSerializer
     filterset_class = DecisionMapFilter
     search_fields = ["name", "description"]
-    ordering_fields = ["id", "name", "version", "trigger_source"]
+    ordering_fields = ["id", "name", "version", "category"]
 
     @action(methods=['post'], detail=True, url_path='save-graph')
     def save_graph(self, request, pk=None):
@@ -59,7 +59,7 @@ class DecisionMapViewSet(CreateListMixin, BaseViewSet):
         doc = {
             'version': decision_map.version,
             'name': decision_map.name,
-            'trigger_source': decision_map.trigger_source,
+            'category': decision_map.category,
             'nodes': [
                 {
                     'key': n.get('key'),

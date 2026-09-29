@@ -103,9 +103,15 @@ def _receive_for_endpoint(view, endpoint, request):
         .filter(node_type='trigger', config__webhook_endpoint=endpoint.id)
         .select_related('map')
     )
+    payload_event = payload.get('event') if isinstance(payload, dict) else None
     runs = []
     for node in bound:
         if not node.map or not node.map.is_active:
+            continue
+        node_event = (node.config or {}).get('event')
+        # Real event matching: if the payload carries an event, only trigger
+        # maps whose trigger node expects that exact event.
+        if payload_event and node_event and node_event != payload_event:
             continue
         runs.append(run_map_for_trigger(node.map, payload))
 

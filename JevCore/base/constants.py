@@ -122,7 +122,7 @@ APPROVAL_TOOL_VIA_CHOICES = (
 
 # ==================== DECISIONS ====================
 
-DECISION_TRIGGER_CHOICES = (
+DECISION_MAP_CATEGORY_CHOICES = (
     ('webhook', 'Webhook'),
     ('manual', 'Manual'),
     ('schedule', 'Schedule'),

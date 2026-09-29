@@ -59,7 +59,7 @@ const DecisionMapsList: React.FC = () => {
         description: "",
         version: "1.0.0",
         is_active: true,
-        trigger_source: "manual",
+        category: "manual",
         layout: { nodes: [], edges: [] },
         status: "activated",
       });
@@ -96,7 +96,7 @@ const DecisionMapsList: React.FC = () => {
           <TableHead>
             <TableRow>
               <TableCell>Name</TableCell>
-              <TableCell>Trigger</TableCell>
+              <TableCell>Category</TableCell>
               <TableCell>Version</TableCell>
               <TableCell>Active</TableCell>
               <TableCell>YAML bytes</TableCell>
@@ -115,7 +115,7 @@ const DecisionMapsList: React.FC = () => {
                     {m.name}
                   </Button>
                 </TableCell>
-                <TableCell>{m.trigger_source || "—"}</TableCell>
+                <TableCell>{m.category || "—"}</TableCell>
                 <TableCell>{m.version || "—"}</TableCell>
                 <TableCell>
                   <Chip size="small" label={m.is_active ? "active" : "inactive"} color={m.is_active ? "success" : "default"} />

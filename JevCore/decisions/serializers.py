@@ -9,7 +9,7 @@ class DecisionMapSerializer(serializers.ModelSerializer):
     class Meta:
         model = DecisionMap
         fields = ('id', 'name', 'description', 'integration', 'version',
-                  'is_active', 'layout', 'spec_yaml', 'trigger_source',
+                  'is_active', 'layout', 'spec_yaml', 'category',
                   'status', 'created_date_time', 'updated_date_time')
         read_only_fields = ('id', 'spec_yaml', 'created_date_time', 'updated_date_time')
 

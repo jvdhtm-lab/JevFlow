@@ -357,7 +357,7 @@ class Command(BaseCommand):
                 'name': 'Jira triage',
                 'description': 'Classify, prioritize and route incoming Jira issues',
                 'integration': jira,
-                'trigger_source': 'webhook',
+                'category': 'webhook',
                 'nodes': [
                     ('trigger', 'trigger', 'Jira webhook', {'event': 'issue.created'}, 0, 0),
                     ('classify', 'classification', 'Classify issue', {
@@ -420,7 +420,7 @@ class Command(BaseCommand):
                 'name': 'Manual review router',
                 'description': 'Route manual requests via guard + decision',
                 'integration': None,
-                'trigger_source': 'manual',
+                'category': 'manual',
                 'nodes': [
                     ('trigger', 'trigger', 'Manual trigger', {}, 0, 0),
                     ('eligible', 'rule', 'Eligibility rule',
@@ -437,7 +437,7 @@ class Command(BaseCommand):
                 'name': 'PR auto-review',
                 'description': 'Classify pull requests, branch on risk, approve or request changes',
                 'integration': github,
-                'trigger_source': 'webhook',
+                'category': 'webhook',
                 'nodes': [
                     ('trigger', 'trigger', 'PR opened', {'event': 'pull_request.opened'}, 0, 0),
                     ('classify', 'classification', 'Classify change', {
@@ -501,7 +501,7 @@ class Command(BaseCommand):
                 'name': 'Incident escalation',
                 'description': 'Score incoming incidents and escalate critical ones',
                 'integration': slack,
-                'trigger_source': 'event',
+                'category': 'event',
                 'nodes': [
                     ('trigger', 'trigger', 'Alert fired', {'event': 'alert.firing'}, 0, 0),
                     ('prioritize', 'prioritization', 'Score severity', {
@@ -565,7 +565,7 @@ class Command(BaseCommand):
                 'name': 'VHRS Leave Approval',
                 'description': 'Receive a leave request from VHRS, check eligibility, route to manager',
                 'integration': vhrs,
-                'trigger_source': 'webhook',
+                'category': 'webhook',
                 'nodes': [
                     ('trigger', 'trigger', 'Leave requested', {'event': 'leave.requested'}, 0, 0),
                     ('eligible', 'rule', 'Balance sufficient', {
@@ -600,7 +600,7 @@ class Command(BaseCommand):
                 'name': 'VHRS New Hire Onboarding',
                 'description': 'When VHRS records a new hire, classify the department and open onboarding tasks',
                 'integration': vhrs,
-                'trigger_source': 'webhook',
+                'category': 'webhook',
                 'nodes': [
                     ('trigger', 'trigger', 'Employee hired', {'event': 'employee.hired'}, 0, 0),
                     ('classify', 'classification', 'Department', {
@@ -644,7 +644,7 @@ class Command(BaseCommand):
                 integration=spec['integration'],
                 version='1.0.0',
                 is_active=True,
-                trigger_source=spec['trigger_source'],
+                category=spec['category'],
                 layout={'nodes': [], 'edges': []},
                 account=account,
                 status='activated',
@@ -669,7 +669,18 @@ class Command(BaseCommand):
             for key, ntype, title, config, x, y in spec['nodes']:
                 cfg = dict(config)
                 if ntype == 'trigger' and inbound_hook is not None:
-                    cfg['webhook_endpoint'] = inbound_hook.id
+                    event = cfg.get('event')
+                    # For event-specific maps (e.g. VHRS), bind to the hook whose
+                    # name contains the event string when available.
+                    event_hook = None
+                    if event and spec['integration']:
+                        event_hook = WebhookEndpoint.objects.filter(
+                            integration=spec['integration'],
+                            direction='inbound',
+                            is_active=True,
+                            name__icontains=event,
+                        ).first()
+                    cfg['webhook_endpoint'] = (event_hook or inbound_hook).id
                 if ntype == 'action' and outbound_hook is not None:
                     cfg['webhook_endpoint'] = outbound_hook.id
                 if ntype == 'approval' and approval_tool is not None:

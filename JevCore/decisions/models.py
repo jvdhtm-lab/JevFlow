@@ -5,7 +5,7 @@ from base.constants import (
     APPROVAL_REQUEST_STATUS_CHOICES,
     APPROVAL_TOOL_CHOICES,
     APPROVAL_TOOL_VIA_CHOICES,
-    DECISION_TRIGGER_CHOICES,
+    DECISION_MAP_CATEGORY_CHOICES,
     DECISION_NODE_TYPE_CHOICES,
     DECISION_RUN_STATUS_CHOICES,
 )
@@ -26,8 +26,8 @@ class DecisionMap(TenantBaseModel):
     # Canonical YAML spec of the graph (nodes/edges). Regenerated on every
     # write path so the DB always holds the current graphical map as YAML.
     spec_yaml = models.TextField(blank=True, default='')
-    trigger_source = models.CharField(
-        max_length=20, choices=DECISION_TRIGGER_CHOICES, default='manual'
+    category = models.CharField(
+        max_length=20, choices=DECISION_MAP_CATEGORY_CHOICES, default='manual'
     )
 
     def refresh_spec_yaml(self):

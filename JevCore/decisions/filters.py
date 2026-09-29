@@ -7,7 +7,7 @@ from base.constants import (
     APPROVAL_TOOL_VIA_CHOICES,
     DECISION_NODE_TYPE_CHOICES,
     DECISION_RUN_STATUS_CHOICES,
-    DECISION_TRIGGER_CHOICES,
+    DECISION_MAP_CATEGORY_CHOICES,
     STATUS_CHOICES,
 )
 from .models import (
@@ -26,16 +26,16 @@ class DecisionMapFilter(django_filters.FilterSet):
     version = django_filters.CharFilter(
         lookup_expr='exact', label='Version', help_text='Exact version string.')
     is_active = django_filters.BooleanFilter(label='Is active', help_text='Exact boolean match.')
-    trigger_source = django_filters.ChoiceFilter(
-        choices=DECISION_TRIGGER_CHOICES, label='Trigger source',
-        help_text='Exact source: webhook, manual, schedule or event.')
+    category = django_filters.ChoiceFilter(
+        choices=DECISION_MAP_CATEGORY_CHOICES, label='Category',
+        help_text='Exact category: webhook, manual, schedule or event.')
     status = django_filters.ChoiceFilter(
         choices=STATUS_CHOICES, label='Status', help_text='Exact record status.')
 
     class Meta:
         model = DecisionMap
         fields = ['id', 'name', 'integration', 'version', 'is_active',
-                  'trigger_source', 'status']
+                  'category', 'status']
 
 
 class DecisionNodeFilter(django_filters.FilterSet):

@@ -68,8 +68,8 @@ export const DecisionMap: ResourceObject = {
       'x-vhrs-sortable': true,
       sortable: true,
     },
-    trigger_source: {
-      title: 'Trigger source',
+    category: {
+      title: 'Category',
       type: 'string',
       enum: ['webhook', 'manual', 'schedule', 'event'],
       'x-vhrs-sortable': true,

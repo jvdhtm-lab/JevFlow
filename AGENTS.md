@@ -324,8 +324,10 @@ The inspector edits per-node `config` through structured editors plus an advance
 
 | Node type | Config key shape | Notes |
 |---|---|---|
-| `trigger` | `event: string` | webhook / manual / schedule / event |
+| `trigger` | `event: string` | Real event name this trigger responds to, e.g. `employee.hired`, `leave.requested`, `issue.created`. Matched against the `event` key of inbound payloads. |
 | `rule` | `qtype: "noul"`, `instructions` | proposition text |
+
+The map itself has a separate `category` field (`webhook`, `manual`, `schedule`, `event`) that describes how the map is triggered at a high level.
 | `classification` / `decision` | `qtype: "choice"`, `criteria.options[]`, `criteria.keywords: {option: [kw]}` | |
 | `prioritization` | `qtype: "score"`, `rubric.weights`, `rubric.keywords`, `rubric.levels: [[threshold, label], ...]` | default levels `[[80,"high"],[50,"medium"],[0,"low"]]` |
 | `approval` | `approval_tool: <id>`, `tool`, `action`, `policy.deny_tools[]`, `policy.strict` | picker + “New approval tool” dialog |
@@ -371,7 +373,7 @@ The inspector edits per-node `config` through structured editors plus an advance
 - `?secret=<secret>` query param
 - HMAC-SHA256 body signatures: `X-Hub-Signature-256`, `X-Signature-256`, `X-Jira-Signature`, `X-Signature`
 
-The receiver `WebhookEndpointViewSet.receive` (AllowAny) matches by secret and runs every active map whose trigger node is bound to that hook, updates `last_received_at`, and writes a `SyncLog`.
+The receiver `WebhookEndpointViewSet.receive` (AllowAny) matches by secret and runs every active map whose trigger node is bound to that hook. If the inbound payload contains an `event` key, only maps whose trigger node `config.event` matches that event are executed. It then updates `last_received_at` and writes a `SyncLog`.
 
 ### Outbound auth
 
@@ -750,6 +752,8 @@ Requires macaco (`:4001`) and Django (`:8081`). Default credentials: `root@local
 - Type-driven inspector editors for all node config shapes.
 - `nodeConfig` draft object keeps JSON mirror in sync.
 - Action nodes require outbound hook binding.
+- Renamed `DecisionMap.trigger_source` → `category` (choices: webhook/manual/schedule/event).
+- Trigger node `config.event` is now matched against inbound webhook payloads; only maps with a matching event run.
 
 ### Integrations
 - Corrected inbound/outbound webhook architecture.

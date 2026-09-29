@@ -93,7 +93,7 @@ export interface DecisionMap {
   is_active?: boolean;
   layout?: Record<string, unknown> | null;
   spec_yaml?: string;
-  trigger_source?: 'webhook' | 'manual' | 'schedule' | 'event';
+  category?: 'webhook' | 'manual' | 'schedule' | 'event';
   status?: 'activated' | 'deactivated' | 'pending' | 'confirmed' | 'archived';
   created_date_time?: string;
   updated_date_time?: string;
