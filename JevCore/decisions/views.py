@@ -111,7 +111,8 @@ class DecisionNodeViewSet(CreateListMixin, BaseViewSet):
     ordering_fields = ["id", "node_key", "node_type"]
 
     def perform_create(self, serializer):
-        _touch_map(serializer.save())
+        account = getattr(self.request.user, 'account', None)
+        _touch_map(serializer.save(account=account))
 
     def perform_update(self, serializer):
         _touch_map(serializer.save())
@@ -130,7 +131,8 @@ class DecisionEdgeViewSet(CreateListMixin, BaseViewSet):
     ordering_fields = ["id", "priority", "label"]
 
     def perform_create(self, serializer):
-        _touch_map(serializer.save())
+        account = getattr(self.request.user, 'account', None)
+        _touch_map(serializer.save(account=account))
 
     def perform_update(self, serializer):
         _touch_map(serializer.save())
@@ -153,8 +155,8 @@ class ApprovalToolViewSet(CreateListMixin, BaseViewSet):
     queryset = ApprovalTool.objects.order_by('pk')
     serializer_class = ApprovalToolSerializer
     filterset_class = ApprovalToolFilter
-    search_fields = ["name", "target"]
-    ordering_fields = ["id", "tool_type", "is_active"]
+    search_fields = ["name", "description"]
+    ordering_fields = ["id", "tool_type", "via", "status"]
 
 
 class ApprovalRequestViewSet(CreateListMixin, BaseViewSet):

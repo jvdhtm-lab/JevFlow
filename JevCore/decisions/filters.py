@@ -4,6 +4,7 @@ import django_filters
 from base.constants import (
     APPROVAL_REQUEST_STATUS_CHOICES,
     APPROVAL_TOOL_CHOICES,
+    APPROVAL_TOOL_VIA_CHOICES,
     DECISION_NODE_TYPE_CHOICES,
     DECISION_RUN_STATUS_CHOICES,
     DECISION_TRIGGER_CHOICES,
@@ -28,16 +29,13 @@ class DecisionMapFilter(django_filters.FilterSet):
     trigger_source = django_filters.ChoiceFilter(
         choices=DECISION_TRIGGER_CHOICES, label='Trigger source',
         help_text='Exact source: webhook, manual, schedule or event.')
-    account = django_filters.NumberFilter(
-        field_name='account', lookup_expr='exact', label='Account ID',
-        help_text='Exact account (tenant) ID.')
     status = django_filters.ChoiceFilter(
         choices=STATUS_CHOICES, label='Status', help_text='Exact record status.')
 
     class Meta:
         model = DecisionMap
         fields = ['id', 'name', 'integration', 'version', 'is_active',
-                  'trigger_source', 'account', 'status']
+                  'trigger_source', 'status']
 
 
 class DecisionNodeFilter(django_filters.FilterSet):
@@ -120,17 +118,23 @@ class DecisionRunFilter(django_filters.FilterSet):
 class ApprovalToolFilter(django_filters.FilterSet):
     tool_type = django_filters.ChoiceFilter(
         choices=APPROVAL_TOOL_CHOICES, label='Tool type',
-        help_text='Exact type: smtp_email, slack_channel, teams or whatsapp.')
-    is_active = django_filters.BooleanFilter(label='Is active', help_text='Exact boolean match.')
-    account = django_filters.NumberFilter(
-        field_name='account', lookup_expr='exact', label='Account ID',
-        help_text='Exact account (tenant) ID.')
+        help_text='Exact type: message or email.')
+    via = django_filters.ChoiceFilter(
+        choices=APPROVAL_TOOL_VIA_CHOICES, label='Via',
+        help_text='Exact send mode: integration or hook.')
+    integration = django_filters.NumberFilter(
+        field_name='integration', lookup_expr='exact', label='Integration ID',
+        help_text='Exact integration ID.')
+    webhook_endpoint = django_filters.NumberFilter(
+        field_name='webhook_endpoint', lookup_expr='exact', label='Hook ID',
+        help_text='Exact outbound hook ID.')
     status = django_filters.ChoiceFilter(
         choices=STATUS_CHOICES, label='Status', help_text='Exact record status.')
 
     class Meta:
         model = ApprovalTool
-        fields = ['id', 'tool_type', 'is_active', 'account', 'status']
+        fields = ['id', 'tool_type', 'via', 'integration', 'webhook_endpoint',
+                  'status']
 
 
 class ApprovalRequestFilter(django_filters.FilterSet):
@@ -146,10 +150,7 @@ class ApprovalRequestFilter(django_filters.FilterSet):
     status = django_filters.ChoiceFilter(
         choices=APPROVAL_REQUEST_STATUS_CHOICES, label='Status',
         help_text='Exact status: pending, approved or declined.')
-    account = django_filters.NumberFilter(
-        field_name='account', lookup_expr='exact', label='Account ID',
-        help_text='Exact account (tenant) ID.')
 
     class Meta:
         model = ApprovalRequest
-        fields = ['id', 'map', 'run', 'token', 'status', 'account']
+        fields = ['id', 'map', 'run', 'token', 'status']

@@ -251,6 +251,20 @@ class JevEngine:
                 answers[current] = config.get('action', current)
                 step['answer'] = answers[current]
                 confidences.append(1.0)
+            elif ntype == 'llm_agent':
+                # Network call lives in actions.call_llm so this module stays
+                # pure when no URL is bound (offline default_answer / dry_run).
+                from .actions import call_llm
+                res = call_llm(current, config, {'trigger': state or {}, 'answers': answers})
+                answers[current] = res.get('answer') or ''
+                step['answer'] = answers[current]
+                step['llm'] = res
+                if res.get('ok') is True:
+                    confidences.append(0.9)
+                elif res.get('dry_run'):
+                    confidences.append(0.5)
+                else:
+                    confidences.append(0.3)
             else:  # trigger / branch
                 answers[current] = True
                 step['answer'] = True

@@ -48,6 +48,14 @@ export const HOOK_DIRECTION_COLORS: Record<string, string> = {
 
 export const STATUS_CHIP_SX = { fontWeight: 600 };
 
+export const AUTOCOMPLETE_PAPER_SX = {
+  borderRadius: 2,
+  boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+  border: '1px solid',
+  borderColor: 'divider',
+  mt: 0.5,
+};
+
 export function renderStatusChip(cfg: { color: string; bg: string; label: string }, sx: any = {}) {
   return <Chip label={cfg.label} size="small" sx={{ color: cfg.color, bgcolor: cfg.bg, ...sx }} />;
 }

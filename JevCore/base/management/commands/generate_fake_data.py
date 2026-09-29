@@ -67,7 +67,7 @@ class Command(BaseCommand):
 
             self.create_sync_logs(account, integrations)
 
-            tools = self.create_approval_tools(account)
+            tools = self.create_approval_tools(account, integrations)
             self.stdout.write(f'Created {len(tools)} approval tools')
 
             maps = self.create_decision_maps(account, integrations, tools)
@@ -174,6 +174,9 @@ class Command(BaseCommand):
             ('teams', 'Teams', 'https://graph.microsoft.com'),
             ('aws', 'AWS', 'https://aws.amazon.com'),
             ('codex', 'Codex', 'https://codex.example.com'),
+            # VHRS is the reference HRIS we are wiring up. Use generic_webhook
+            # as the type because VHRS is not in INTEGRATION_TYPE_CHOICES yet.
+            ('generic_webhook', 'VHRS', 'http://localhost:8080'),
         ]
         integrations = []
         for itype, name, base_url in specs:
@@ -238,6 +241,38 @@ class Command(BaseCommand):
                 account=account,
                 status='activated',
             ))
+
+        # Extra VHRS hooks: one inbound endpoint per HR event and a dedicated
+        # outbound endpoint that posts back into the VHRS API.
+        vhrs = next((i for i in integrations if i.name.startswith('VHRS')), None)
+        if vhrs:
+            for event in ['employee.hired', 'leave.requested', 'incident.reported']:
+                endpoints.append(WebhookEndpoint.objects.create(
+                    name=f'VHRS {event} ({account.slug[:10]})',
+                    description=f'Inbound VHRS event: {event}',
+                    integration=vhrs,
+                    direction='inbound',
+                    source='generic',
+                    target_path=INBOUND_WEBHOOK_PATH,
+                    is_active=True,
+                    last_received_at=timezone.now() - timedelta(minutes=random.randint(5, 5000)),
+                    account=account,
+                    status='activated',
+                ))
+            endpoints.append(WebhookEndpoint.objects.create(
+                name=f'VHRS outbound API ({account.slug[:10]})',
+                description='Posts action results back into VHRS',
+                integration=vhrs,
+                direction='outbound',
+                source='generic',
+                target_path='/api/staff/',
+                target_url='http://localhost:8080/api/staff/',
+                auth_scheme='bearer',
+                auth_token=self.faker.sha256()[:32],
+                is_active=True,
+                account=account,
+                status='activated',
+            ))
         return endpoints
 
     def create_sync_logs(self, account, integrations):
@@ -256,24 +291,55 @@ class Command(BaseCommand):
                 )
 
     # ------------------------------------------------------------------
-    def create_approval_tools(self, account):
-        specs = [
-            ('smtp_email', 'team inbox', 'team@example.com'),
-            ('slack_channel', '#eng approvals', 'https://hooks.slack.example/approvals'),
-            ('teams', 'on-call channel', 'https://teams.example.com/approvals'),
-            ('whatsapp', 'on-call phone', '+15550001111'),
-        ]
+    def create_approval_tools(self, account, integrations):
         tools = []
-        for tool_type, name, target in specs:
+        for integration in integrations[:2]:
+            # email via integration
             tools.append(ApprovalTool.objects.create(
-                name=f'{name} ({account.slug[:12]})',
-                tool_type=tool_type,
-                target=target,
-                config={},
-                is_active=True,
+                name=f'Email via {integration.integration_type} ({account.slug[:10]})',
+                tool_type='email',
+                via='integration',
+                integration=integration,
                 account=account,
                 status='activated',
             ))
+            # message via outbound hook
+            hook = WebhookEndpoint.objects.filter(
+                integration=integration, direction='outbound', is_active=True
+            ).first()
+            if hook:
+                tools.append(ApprovalTool.objects.create(
+                    name=f'Message via {integration.integration_type} hook ({account.slug[:10]})',
+                    tool_type='message',
+                    via='hook',
+                    webhook_endpoint=hook,
+                    account=account,
+                    status='activated',
+                ))
+
+        # VHRS-specific approval tools (manager email + HR Slack/Teams hook).
+        vhrs = next((i for i in integrations if i.name.startswith('VHRS')), None)
+        if vhrs:
+            tools.append(ApprovalTool.objects.create(
+                name=f'VHRS manager email ({account.slug[:10]})',
+                tool_type='email',
+                via='integration',
+                integration=vhrs,
+                account=account,
+                status='activated',
+            ))
+            vhrs_hook = WebhookEndpoint.objects.filter(
+                integration=vhrs, direction='outbound', is_active=True
+            ).first()
+            if vhrs_hook:
+                tools.append(ApprovalTool.objects.create(
+                    name=f'VHRS HR channel message ({account.slug[:10]})',
+                    tool_type='message',
+                    via='hook',
+                    webhook_endpoint=vhrs_hook,
+                    account=account,
+                    status='activated',
+                ))
         return tools
 
     def create_decision_maps(self, account, integrations, tools=None):
@@ -284,6 +350,7 @@ class Command(BaseCommand):
         slack = next((i for i in integrations
                       if i.integration_type in ('slack', 'slack_app', 'teams')),
                      integrations[0])
+        vhrs = next((i for i in integrations if i.name.startswith('VHRS')), None)
 
         specs = [
             {
@@ -424,8 +491,8 @@ class Command(BaseCommand):
                 'edges': [
                     ('trigger', 'classify', 'on-pr'),
                     ('classify', 'risk', 'classified'),
+                    ('risk', 'approve', 'needs-eyes', {'equals': {'classify': 'hotfix'}}),
                     ('risk', 'decide', 'risky'),
-                    ('risk', 'approve', 'needs-eyes'),
                     ('decide', 'merge', 'approved'),
                     ('approve', 'notify', 'announce'),
                 ],
@@ -486,9 +553,86 @@ class Command(BaseCommand):
                 'edges': [
                     ('trigger', 'prioritize', 'on-alert'),
                     ('prioritize', 'decide', 'scored'),
-                    ('decide', 'approve', 'critical'),
+                    ('decide', 'approve', 'critical', {'equals': {'prioritize': 'critical'}}),
                     ('decide', 'log', 'minor'),
                     ('approve', 'page', 'confirmed'),
+                ],
+            },
+            # ------------------------------------------------------------------
+            # VHRS integrations: fake data that assumes JevFlow is wired to VHRS.
+            # ------------------------------------------------------------------
+            {
+                'name': 'VHRS Leave Approval',
+                'description': 'Receive a leave request from VHRS, check eligibility, route to manager',
+                'integration': vhrs,
+                'trigger_source': 'webhook',
+                'nodes': [
+                    ('trigger', 'trigger', 'Leave requested', {'event': 'leave.requested'}, 0, 0),
+                    ('eligible', 'rule', 'Balance sufficient', {
+                        'qtype': 'noul',
+                        'instructions': 'Employee has enough accrued leave balance',
+                    }, 220, 0),
+                    ('approve', 'approval', 'Manager approval', {
+                        'approvers': ['manager'],
+                        'qtype': 'noul',
+                        'instructions': 'Manager approves the leave request',
+                    }, 440, 0),
+                    ('act', 'action', 'Update VHRS leave', {
+                        'action': 'http_post',
+                        'method': 'PATCH',
+                        'url': 'http://localhost:8080/api/leave/{{trigger.leave.id}}/',
+                        'headers': {'Content-Type': 'application/json'},
+                        'body': {
+                            'status': 'approved',
+                            'approved_by': '{{answers.approve}}',
+                            'notes': 'Approved via JevFlow (route: {{answers._route}})',
+                        },
+                        'dry_run': True,
+                    }, 660, 0),
+                ],
+                'edges': [
+                    ('trigger', 'eligible', 'on-leave'),
+                    ('eligible', 'approve', 'eligible'),
+                    ('approve', 'act', 'approved'),
+                ],
+            },
+            {
+                'name': 'VHRS New Hire Onboarding',
+                'description': 'When VHRS records a new hire, classify the department and open onboarding tasks',
+                'integration': vhrs,
+                'trigger_source': 'webhook',
+                'nodes': [
+                    ('trigger', 'trigger', 'Employee hired', {'event': 'employee.hired'}, 0, 0),
+                    ('classify', 'classification', 'Department', {
+                        'qtype': 'choice',
+                        'instructions': 'Classify the new hire by department',
+                        'criteria': {
+                            'options': ['engineering', 'sales', 'people', 'finance'],
+                            'keywords': {
+                                'engineering': ['engineer', 'developer', 'dev', 'sre'],
+                                'sales': ['sales', 'account executive', 'ae'],
+                                'people': ['hr', 'people', 'recruiter'],
+                                'finance': ['finance', 'accountant', 'payroll'],
+                            },
+                        },
+                    }, 220, 0),
+                    ('act', 'action', 'Create onboarding record', {
+                        'action': 'http_post',
+                        'method': 'POST',
+                        'url': 'http://localhost:8080/api/staff/',
+                        'headers': {'Content-Type': 'application/json'},
+                        'body': {
+                            'employee_id': '{{trigger.employee.id}}',
+                            'name': '{{trigger.employee.name}}',
+                            'department': '{{answers.classify}}',
+                            'source': 'jevflow',
+                        },
+                        'dry_run': True,
+                    }, 440, 0),
+                ],
+                'edges': [
+                    ('trigger', 'classify', 'on-hire'),
+                    ('classify', 'act', 'route'),
                 ],
             },
         ]
@@ -510,7 +654,18 @@ class Command(BaseCommand):
                 integration=spec['integration'], direction='inbound', is_active=True).first()
             outbound_hook = WebhookEndpoint.objects.filter(
                 integration=spec['integration'], direction='outbound', is_active=True).first()
-            approval_tool = next((t for t in tools if t.is_active), None)
+            # For VHRS maps, prefer the dedicated outbound hook that points at
+            # the local VHRS API rather than the generic customer hook.
+            if spec['integration'] and spec['integration'].name.startswith('VHRS'):
+                vhrs_api_hook = WebhookEndpoint.objects.filter(
+                    integration=spec['integration'],
+                    direction='outbound',
+                    target_url__startswith='http://localhost:8080',
+                    is_active=True,
+                ).first()
+                if vhrs_api_hook:
+                    outbound_hook = vhrs_api_hook
+            approval_tool = next((t for t in tools if t.status == 'activated'), None)
             for key, ntype, title, config, x, y in spec['nodes']:
                 cfg = dict(config)
                 if ntype == 'trigger' and inbound_hook is not None:
@@ -530,14 +685,16 @@ class Command(BaseCommand):
                     position_y=y,
                     status='activated',
                 )
-            for prio, (src, tgt, label) in enumerate(spec['edges']):
+            for prio, edge in enumerate(spec['edges']):
+                src, tgt, label = edge[0], edge[1], edge[2]
+                condition = edge[3] if len(edge) > 3 else {}
                 DecisionEdge.objects.create(
                     name=f'{src}->{tgt}',
                     map=decision_map,
                     source=node_objs[src],
                     target=node_objs[tgt],
                     label=label,
-                    condition={},
+                    condition=condition,
                     priority=prio,
                     status='activated',
                 )
@@ -546,6 +703,12 @@ class Command(BaseCommand):
         return maps
 
     def create_decision_runs(self, maps):
+        # Runs go through the real execution path (not canned rows) so seeded
+        # data is coherent end to end: answers from the engine, action_results
+        # from bound outbound hooks (dry_run in seeds: rendered, not sent),
+        # ApprovalRequests + SyncLogs wherever a trace visits approval nodes.
+        from jev_engine.views import run_map_for_trigger
+
         runs = []
         samples = [
             {'summary': 'Critical outage in payment service, urgent fix needed',
@@ -566,29 +729,23 @@ class Command(BaseCommand):
                     'url': 'https://github.example.com/acme/app/pull/42'},
              'summary': 'Fix login redirect loop',
              'labels': ['bug', 'minor']},
+            # VHRS-shaped payloads.
+            {'event': 'leave.requested',
+             'leave': {'id': 101, 'days': 5, 'type': 'annual'},
+             'employee': {'id': 201, 'name': 'Alice Engineer', 'department': 'engineering'},
+             'summary': 'Alice Engineer requested 5 days of annual leave',
+             'labels': ['leave', 'annual']},
+            {'event': 'employee.hired',
+             'employee': {'id': 301, 'name': 'Bob Sales', 'department': 'sales'},
+             'summary': 'New hire Bob Sales joined the sales team',
+             'labels': ['new-hire', 'sales', 'onboarding']},
         ]
         for decision_map in maps:
-            nodes = [{'key': n.node_key, 'node_type': n.node_type, 'config': n.config or {}}
-                     for n in decision_map.nodes.order_by('pk')]
-            edges = [{'source': e.source.node_key, 'target': e.target.node_key,
-                      'label': e.label, 'condition': e.condition or {},
-                      'priority': e.priority}
-                     for e in decision_map.edges.order_by('priority', 'pk')]
             for sample in samples:
-                result = JevEngine.decide({'nodes': nodes, 'edges': edges}, sample)
-                now = timezone.now()
-                runs.append(DecisionRun.objects.create(
-                    name=f'run {decision_map.name}',
-                    map=decision_map,
-                    trigger_event=sample,
-                    status='decided' if result['route'] != 'block' else 'escalated',
-                    answers=result['answers'],
-                    decided_route=result['route'],
-                    confidence=result['confidence'],
-                    executed_action=str(result['answers'].get('act', ''))[:200],
-                    started_at=now - timedelta(seconds=random.randint(1, 30)),
-                    finished_at=now,
-                ))
+                summary = run_map_for_trigger(decision_map, dict(sample))
+                DecisionRun.objects.filter(id=summary['run']).update(
+                    name=f'run {decision_map.name}')
+                runs.append(summary['run'])
         return runs
 
     # ------------------------------------------------------------------

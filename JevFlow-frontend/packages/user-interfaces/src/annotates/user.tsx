@@ -2,7 +2,7 @@ import React from "react";
 import { TextField, Switch, FormControlLabel, MenuItem } from "@mui/material";
 import { annotateResource } from "@vhrs/resources";
 import { People } from "@mui/icons-material";
-import { commonAnnotations, defaultActions, relatedFieldAnnotation } from "./common";
+import { commonAnnotations, defaultActions } from "./common";
 import { colors, ColorDot } from "./theme";
 
 const getUserColor = (data?: any) => (data?.is_active ? colors.success.main : colors.fallback);
@@ -41,11 +41,6 @@ annotateResource("User", {
           ),
         },
       },
-    },
-    account: {
-      ...relatedFieldAnnotation("Account", "Account"),
-      sortable: true,
-      filterable: true,
     },
     password: {
       display: {
@@ -87,7 +82,7 @@ annotateResource("User", {
       asListItem: (data: any) => (
         <span>
           <ColorDot color={getUserColor(data)} />{" "}
-          {[data.first_name, data.last_name].filter(Boolean).join(" ") || data.username} · {data.email}
+          {[data?.first_name, data?.last_name].filter(Boolean).join(" ") || data?.username} · {data?.email}
         </span>
       ),
     },

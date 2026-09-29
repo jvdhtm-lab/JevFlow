@@ -30,9 +30,6 @@ class IntegrationFilter(django_filters.FilterSet):
     owner = django_filters.NumberFilter(
         field_name='owner', lookup_expr='exact', label='Owner user ID',
         help_text='Exact owner user ID.')
-    account = django_filters.NumberFilter(
-        field_name='account', lookup_expr='exact', label='Account ID',
-        help_text='Exact account (tenant) ID.')
     status = django_filters.ChoiceFilter(
         choices=STATUS_CHOICES, label='Status', help_text='Exact record status.')
     last_sync_after = django_filters.DateTimeFilter(
@@ -45,7 +42,7 @@ class IntegrationFilter(django_filters.FilterSet):
     class Meta:
         model = Integration
         fields = ['id', 'name', 'purpose', 'integration_type', 'connection_status',
-                  'owner', 'account', 'status',
+                  'owner', 'status',
                   'last_sync_after', 'last_sync_before']
 
 
@@ -63,16 +60,13 @@ class WebhookEndpointFilter(django_filters.FilterSet):
         choices=WEBHOOK_DIRECTION_CHOICES, label='Direction',
         help_text='Exact direction: inbound (trigger receives) or outbound (action posts).')
     is_active = django_filters.BooleanFilter(label='Is active', help_text='Exact boolean match.')
-    account = django_filters.NumberFilter(
-        field_name='account', lookup_expr='exact', label='Account ID',
-        help_text='Exact account (tenant) ID.')
     status = django_filters.ChoiceFilter(
         choices=STATUS_CHOICES, label='Status', help_text='Exact record status.')
 
     class Meta:
         model = WebhookEndpoint
         fields = ['id', 'name', 'integration', 'direction', 'source', 'is_active',
-                  'account', 'status']
+                  'status']
 
 
 class SyncLogFilter(django_filters.FilterSet):
@@ -94,13 +88,10 @@ class SyncLogFilter(django_filters.FilterSet):
     duration_max = django_filters.NumberFilter(
         field_name='duration_ms', lookup_expr='lte', label='Max duration (ms)',
         help_text='Entries with duration_ms less than or equal to this.')
-    account = django_filters.NumberFilter(
-        field_name='account', lookup_expr='exact', label='Account ID',
-        help_text='Exact account (tenant) ID.')
     status = django_filters.ChoiceFilter(
         choices=STATUS_CHOICES, label='Status', help_text='Exact record status.')
 
     class Meta:
         model = SyncLog
         fields = ['id', 'integration', 'direction', 'event_type', 'result',
-                  'duration_min', 'duration_max', 'account', 'status']
+                  'duration_min', 'duration_max', 'status']

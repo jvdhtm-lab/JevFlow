@@ -37,7 +37,7 @@ const Layout: React.FC<{ menuItems: MenuItemType[]; children: React.ReactNode }>
           <IconButton color="inherit">
             <NotifIcon />
           </IconButton>
-          <IconButton color="inherit" onClick={(e) => setAnchor(e.currentTarget)}>
+          <IconButton color="inherit" aria-label="account of current user" onClick={(e) => setAnchor(e.currentTarget)}>
             <AccountCircle />
           </IconButton>
           <Menu open={Boolean(anchor)} anchorEl={anchor} onClose={() => setAnchor(null)}>
@@ -46,7 +46,7 @@ const Layout: React.FC<{ menuItems: MenuItemType[]; children: React.ReactNode }>
           </Menu>
         </Toolbar>
       </AppBar>
-      <Drawer variant="permanent" sx={{ width: 220, "& .MuiDrawer-paper": { width: 220, mt: 8 } }}>
+      <Drawer variant="permanent" aria-label="Sidebar navigation" sx={{ width: 220, "& .MuiDrawer-paper": { width: 220, mt: 8 } }}>
         <List>
           {menuItems.map((m) => (
             <ListItemButton key={m.path} selected={location.pathname.startsWith(m.path)} onClick={() => navigate(m.path)}>

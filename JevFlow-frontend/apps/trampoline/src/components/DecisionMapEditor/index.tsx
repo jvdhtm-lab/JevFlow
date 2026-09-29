@@ -55,6 +55,7 @@ import AltRouteIcon from "@mui/icons-material/AltRoute";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import CallSplitIcon from "@mui/icons-material/CallSplit";
 import VerifiedIcon from "@mui/icons-material/Verified";
+import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
 import CodeIcon from "@mui/icons-material/Code";
 import CloseIcon from "@mui/icons-material/Close";
@@ -64,6 +65,7 @@ import { useNavigate } from "react-router-dom";
 import { resources } from "@vhrs/resources";
 import { useRItem } from "@vhrs/user-interfaces";
 import { WebhookEndpointForm } from "@vhrs/user-interfaces";
+import { ApprovalToolForm } from "@vhrs/user-interfaces";
 import { NODE_TYPE_COLORS, colors } from "../../colors";
 
 // DB node types (must match DECISION_NODE_TYPE_CHOICES).
@@ -76,6 +78,7 @@ const PALETTE: string[] = [
   "action",
   "branch",
   "approval",
+  "llm_agent",
 ];
 
 const typeColor = (t: string) => NODE_TYPE_COLORS[t] || colors.fallback;
@@ -89,6 +92,7 @@ const TYPE_ICONS: Record<string, React.ReactNode> = {
   action: <PlayArrowIcon sx={{ fontSize: 16 }} />,
   branch: <CallSplitIcon sx={{ fontSize: 16 }} />,
   approval: <VerifiedIcon sx={{ fontSize: 16 }} />,
+  llm_agent: <AutoAwesomeIcon sx={{ fontSize: 16 }} />,
 };
 
 const TYPE_HINTS: Record<string, string> = {
@@ -100,6 +104,7 @@ const TYPE_HINTS: Record<string, string> = {
   action: "Do something — post, ticket, merge, page",
   branch: "Split the flow on conditions",
   approval: "Human sign-off gate",
+  llm_agent: "Ask an LLM — prompt via hook or integration, branch on the answer",
 };
 
 // ---- minimal YAML emitter (no extra deps): mirrors the DB spec format ----
@@ -154,6 +159,7 @@ const TYPE_SHAPES: Record<string, { kind: ShapeKind; w: number; h: number }> = {
   action: { kind: "dashed", w: 170, h: 76 },
   branch: { kind: "hexagon", w: 170, h: 96 },
   approval: { kind: "ellipse", w: 170, h: 84 },
+  llm_agent: { kind: "dashed", w: 180, h: 84 },
 };
 
 const shapeOf = (t: string) => TYPE_SHAPES[t] || { kind: "rect" as ShapeKind, w: 170, h: 76 };
@@ -255,6 +261,14 @@ const DEFAULT_CONFIG: Record<string, any> = {
   action: { action: "" },
   branch: {},
   approval: { approvers: [] },
+  llm_agent: {
+    prompt: "",
+    system: "",
+    model: "gpt-4o-mini",
+    default_answer: "",
+    response_path: "",
+    dry_run: true,
+  },
 };
 
 export interface MapNodeData {
@@ -314,10 +328,15 @@ const DecisionMapEditor: React.FC = () => {
 
   const [hookDialogOpen, setHookDialogOpen] = useState(false);
   const [hookDialogDirection, setHookDialogDirection] = useState<"inbound" | "outbound">("inbound");
+  const [toolDialogOpen, setToolDialogOpen] = useState(false);
   const [mapIntegrationId, setMapIntegrationId] = useState<number | null>(null);
 
   const hooksReq = useRItem(resources.WebhookEndpoint, { pageSize: 100 });
   const hooks: any[] = Array.isArray(hooksReq.data) ? hooksReq.data : [];
+  const toolsReq = useRItem(resources.ApprovalTool, { pageSize: 100 });
+  const approvalTools: any[] = Array.isArray(toolsReq.data) ? toolsReq.data : [];
+  const integrationsReq = useRItem(resources.Integration, { pageSize: 100 });
+  const integrationList: any[] = Array.isArray(integrationsReq.data) ? integrationsReq.data : [];
 
   const mapReq = useRItem(resources.DecisionMap, { url: "/decision-map/", fetchOnDeclare: false });
   const nodeReq = useRItem(resources.DecisionNode, {
@@ -543,6 +562,16 @@ const DecisionMapEditor: React.FC = () => {
       setNodeConfigError("Action nodes require a bound outbound hook — pick one above.");
       return;
     }
+    // LLM agents need a real endpoint: outbound hook or integration (or dry_run preview).
+    if (
+      selectedNode.data.nodeType === "llm_agent" &&
+      !nodeConfig?.webhook_endpoint &&
+      !nodeConfig?.integration &&
+      !nodeConfig?.dry_run
+    ) {
+      setNodeConfigError("LLM Agent needs a bound outbound hook or integration (or enable dry_run).");
+      return;
+    }
     setNodes((ns) =>
       ns.map((n) =>
         n.id === selectedNode.id
@@ -660,10 +689,26 @@ const DecisionMapEditor: React.FC = () => {
   const removeLevel = (i: number) =>
     setRubric({ weights, keywords: rubricKw, levels: levels.filter((_, j) => j !== i) });
 
-  // trigger / approval / action
+  // trigger / approval / action / llm_agent
   const setEvent = (ev: string) => updateConfig({ ...cfg, event: ev });
   const setTool = (t: string) => updateConfig({ ...cfg, tool: t });
   const setActionName = (a: string) => updateConfig({ ...cfg, action: a });
+  const setPrompt = (v: string) => updateConfig({ ...cfg, prompt: v });
+  const setSystem = (v: string) => updateConfig({ ...cfg, system: v });
+  const setModel = (v: string) => updateConfig({ ...cfg, model: v });
+  const setDefaultAnswer = (v: string) => updateConfig({ ...cfg, default_answer: v });
+  const setResponsePath = (v: string) => updateConfig({ ...cfg, response_path: v });
+  const setTemperature = (v: string) => updateConfig({ ...cfg, temperature: Number(v) || 0 });
+  const setDryRun = (v: boolean) => updateConfig({ ...cfg, dry_run: v });
+  const setLlmIntegration = (value: string) => {
+    if (!value) {
+      const next = { ...cfg };
+      delete next.integration;
+      updateConfig(next);
+      return;
+    }
+    updateConfig({ ...cfg, integration: Number(value) });
+  };
   const setDenyTools = (txt: string) =>
     updateConfig({
       ...cfg,
@@ -695,8 +740,9 @@ const DecisionMapEditor: React.FC = () => {
     updateConfig({
       ...cfg,
       webhook_endpoint: Number(value),
-      action: "http_post",
-      method: cfg?.method || "POST",
+      ...(ntype === "llm_agent"
+        ? {}
+        : { action: "http_post", method: cfg?.method || "POST" }),
       url: hook?.outbound_url || cfg?.url || "",
     });
   };
@@ -728,6 +774,42 @@ const DecisionMapEditor: React.FC = () => {
         if (match?.id) selectHook(String(match.id));
       } catch (e: any) {
         setLoadError(e?.response?.data?.detail || e?.message || "Failed to reload hooks");
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
+  );
+
+  // ---- approval tool binding (approval nodes notify a channel) ----
+  const selectedApprovalTool = useMemo(
+    () => approvalTools.find((t: any) => String(t.id) === String(cfg?.approval_tool)) || null,
+    [approvalTools, cfg?.approval_tool]
+  );
+  const selectApprovalTool = (value: string) => {
+    if (!value) {
+      const next = { ...cfg };
+      delete next.approval_tool;
+      updateConfig(next);
+      return;
+    }
+    updateConfig({ ...cfg, approval_tool: Number(value) });
+  };
+  const handleToolSaved = useCallback(
+    async (form?: any) => {
+      setToolDialogOpen(false);
+      try {
+        const res: any = await toolsReq.fetchItems(true);
+        const rows: any[] = res?.data?.results ?? res?.data ?? [];
+        const match =
+          rows.find(
+            (t: any) =>
+              t.tool_type === form?.tool_type &&
+              (t.target || "") === (form?.target || "")
+          ) ||
+          [...rows].sort((a, b) => (b.id || 0) - (a.id || 0))[0];
+        if (match?.id) selectApprovalTool(String(match.id));
+      } catch (e: any) {
+        setLoadError(e?.response?.data?.detail || e?.message || "Failed to reload approval tools");
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -793,6 +875,20 @@ const DecisionMapEditor: React.FC = () => {
       if (unbound.length) {
         throw new Error(
           `Every action needs a bound outbound hook — bind one on: ${unbound.join(", ")}`
+        );
+      }
+      const llmUnbound = nodes
+        .filter(
+          (n) =>
+            n.data.nodeType === "llm_agent" &&
+            !n.data.config?.webhook_endpoint &&
+            !n.data.config?.integration &&
+            !n.data.config?.dry_run
+        )
+        .map((n) => n.data.key);
+      if (llmUnbound.length) {
+        throw new Error(
+          `LLM Agents need a bound hook or integration (or dry_run) — fix: ${llmUnbound.join(", ")}`
         );
       }
       const res: any = await saveGraphReq.createItem({
@@ -1258,6 +1354,53 @@ const DecisionMapEditor: React.FC = () => {
 
             {ntype === "approval" && (
               <>
+                <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5, mt: 1 }}>
+                  Approval tool — channel notified with the review link
+                </Typography>
+                <TextField
+                  select
+                  fullWidth
+                  size="small"
+                  label="Approval tool (notifies)"
+                  value={cfg?.approval_tool ? String(cfg.approval_tool) : ""}
+                  onChange={(e) => selectApprovalTool(e.target.value)}
+                  helperText="Bind this node to a channel (email, Slack, Teams, WhatsApp)"
+                >
+                  <MenuItem value="">— none —</MenuItem>
+                  {approvalTools.map((t: any) => (
+                    <MenuItem key={t.id} value={String(t.id)}>
+                      {t.tool_type} · {t.via}
+                    </MenuItem>
+                  ))}
+                </TextField>
+                <Button size="small" startIcon={<AddIcon />} onClick={() => setToolDialogOpen(true)} sx={{ mt: 1 }}>
+                  New approval tool
+                </Button>
+                {selectedApprovalTool && (
+                  <Paper variant="outlined" sx={{ mt: 1.5, p: 1.5, borderRadius: 2, bgcolor: "grey.50" }}>
+                    <Box sx={{ display: "flex", gap: 0.5, alignItems: "center" }}>
+                      <Chip
+                        size="small"
+                        label={selectedApprovalTool.tool_type}
+                        color="secondary"
+                        sx={{ height: 20, fontSize: 11 }}
+                      />
+                      <Chip
+                        size="small"
+                        label={selectedApprovalTool.via}
+                        variant="outlined"
+                        sx={{ height: 20, fontSize: 11 }}
+                      />
+                      <Typography variant="caption" color="text.secondary">
+                        {selectedApprovalTool.status}
+                      </Typography>
+                    </Box>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
+                      Sends via {selectedApprovalTool.via === "hook" ? "the bound outbound hook" : "the bound integration's channel"}. The
+                      human gets the review link, logs in, then approves or declines.
+                    </Typography>
+                  </Paper>
+                )}
                 <TextField
                   label="Tool"
                   fullWidth
@@ -1301,16 +1444,121 @@ const DecisionMapEditor: React.FC = () => {
               />
             )}
 
-            {(ntype === "action" || ntype === "trigger") && (
+            {ntype === "llm_agent" && (
+              <>
+                <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5, mt: 1 }}>
+                  Prompt is rendered with {"{{trigger.*}}"} / {"{{answers.*}}"} — branch on the returned answer
+                </Typography>
+                <TextField
+                  label="Prompt"
+                  fullWidth
+                  size="small"
+                  margin="normal"
+                  multiline
+                  minRows={3}
+                  value={cfg?.prompt || ""}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  helperText='e.g. Triage: {{trigger.summary}} — answer with one word'
+                />
+                <TextField
+                  label="System prompt"
+                  fullWidth
+                  size="small"
+                  margin="normal"
+                  multiline
+                  minRows={2}
+                  value={cfg?.system || ""}
+                  onChange={(e) => setSystem(e.target.value)}
+                  helperText="Optional system message"
+                />
+                <TextField
+                  label="Model"
+                  fullWidth
+                  size="small"
+                  margin="normal"
+                  value={cfg?.model || ""}
+                  onChange={(e) => setModel(e.target.value)}
+                  helperText="Provider model id (e.g. gpt-4o-mini)"
+                />
+                <TextField
+                  label="Default answer"
+                  fullWidth
+                  size="small"
+                  margin="normal"
+                  value={cfg?.default_answer || ""}
+                  onChange={(e) => setDefaultAnswer(e.target.value)}
+                  helperText="Used when the call fails or dry_run — keeps edges branching"
+                />
+                <TextField
+                  label="Response path"
+                  fullWidth
+                  size="small"
+                  margin="normal"
+                  value={cfg?.response_path || ""}
+                  onChange={(e) => setResponsePath(e.target.value)}
+                  helperText="Dotted path into the response (blank = auto OpenAI-style extract)"
+                />
+                <TextField
+                  select
+                  fullWidth
+                  size="small"
+                  label="Integration (LLM endpoint)"
+                  value={cfg?.integration ? String(cfg.integration) : ""}
+                  onChange={(e) => setLlmIntegration(e.target.value)}
+                  helperText="base_url + optional path when no hook is bound"
+                >
+                  <MenuItem value="">— none —</MenuItem>
+                  {integrationList.map((i: any) => (
+                    <MenuItem key={i.id} value={String(i.id)}>
+                      {i.name}
+                    </MenuItem>
+                  ))}
+                </TextField>
+                <TextField
+                  label="Path (with integration)"
+                  fullWidth
+                  size="small"
+                  margin="normal"
+                  value={cfg?.path || ""}
+                  onChange={(e) => updateConfig({ ...cfg, path: e.target.value })}
+                  helperText="e.g. /v1/chat/completions (appended to integration base_url)"
+                />
+                <TextField
+                  label="Temperature"
+                  fullWidth
+                  size="small"
+                  margin="normal"
+                  type="number"
+                  inputProps={{ min: 0, max: 2, step: 0.1 }}
+                  value={cfg?.temperature ?? 0}
+                  onChange={(e) => setTemperature(e.target.value)}
+                />
+                <FormControlLabel
+                  control={
+                    <Checkbox checked={!!cfg?.dry_run} onChange={(e) => setDryRun(e.target.checked)} />
+                  }
+                  label="Dry run — use default_answer, skip the network call"
+                />
+              </>
+            )}
+
+            {(ntype === "action" || ntype === "trigger" || ntype === "llm_agent") && (
               <Box sx={{ mt: 1 }}>
                 <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5 }}>
                   {hookDirection === "inbound"
                     ? "Inbound hook — receives the trigger message"
-                    : "Outbound hook — publishes the result (required)"}
+                    : ntype === "llm_agent"
+                      ? "Outbound hook — optional LLM endpoint (auth headers win)"
+                      : "Outbound hook — publishes the result (required)"}
                 </Typography>
                 {ntype === "action" && !cfg?.webhook_endpoint && (
                   <Typography variant="caption" color="error" sx={{ display: "block", mb: 0.5 }}>
                     Bind an outbound hook below — actions cannot save without one.
+                  </Typography>
+                )}
+                {ntype === "llm_agent" && !cfg?.webhook_endpoint && !cfg?.integration && (
+                  <Typography variant="caption" color="error" sx={{ display: "block", mb: 0.5 }}>
+                    Bind an outbound hook OR an integration below — or enable dry_run for previews.
                   </Typography>
                 )}
                 <TextField
@@ -1460,6 +1708,28 @@ const DecisionMapEditor: React.FC = () => {
                 }
               >
                 Insert HTTP POST template
+              </Button>
+            )}
+            {selectedNode.data.nodeType === "llm_agent" && (
+              <Button
+                fullWidth
+                size="small"
+                variant="outlined"
+                sx={{ mt: 1 }}
+                onClick={() =>
+                  updateConfig({
+                    ...cfg,
+                    prompt:
+                      "Triage this change and answer with one word: proceed, review, or block.\n\nSummary: {{trigger.summary}}\nPriority: {{trigger.priority}}",
+                    system: "Answer with a single lowercase word only.",
+                    model: cfg?.model || "gpt-4o-mini",
+                    default_answer: cfg?.default_answer || "review",
+                    response_path: cfg?.response_path || "",
+                    dry_run: cfg?.dry_run ?? true,
+                  })
+                }
+              >
+                Insert LLM template
               </Button>
             )}
           </Box>
@@ -1653,6 +1923,21 @@ const DecisionMapEditor: React.FC = () => {
               status: "activated",
             }}
             onSave={handleHookSaved}
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* new approval tool dialog */}
+      <Dialog open={toolDialogOpen} onClose={() => setToolDialogOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>New approval tool</DialogTitle>
+        <DialogContent>
+          <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}>
+            A channel the human is notified on — email, Slack, Teams or WhatsApp, with the review link.
+          </Typography>
+          <ApprovalToolForm
+            includeFields={["name", "description", "tool_type", "via", "integration", "webhook_endpoint", "status"]}
+            initialData={{ tool_type: "message", via: "integration", status: "activated" }}
+            onSave={handleToolSaved}
           />
         </DialogContent>
       </Dialog>

@@ -28,6 +28,7 @@ export interface ResourceContext {
   saveItem?: (id: string | number, data: any) => Promise<any>;
   createItem?: (data: any) => Promise<any>;
   deleteItem?: (id: string | number) => Promise<any>;
+  row?: any;
 }
 
 export interface ActionPropType {
@@ -62,6 +63,7 @@ export interface ResourceField {
   display?: Display;
   filterable?: boolean;
   sortable?: boolean;
+  searchable?: boolean;
   [key: string]: any;
 }
 

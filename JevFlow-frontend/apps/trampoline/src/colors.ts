@@ -11,10 +11,13 @@ export const colors = {
 export const NODE_TYPE_COLORS: Record<string, string> = {
   trigger: "#0284C7",
   rule: "#7C3AED",
-  classify: "#0AA2A2",
-  prioritize: "#F59E0B",
-  decide: "#16A34A",
+  classification: "#0AA2A2",
+  prioritization: "#F59E0B",
+  decision: "#16A34A",
   action: "#DC2626",
+  branch: "#64748B",
+  approval: "#DB2777",
+  llm_agent: "#8B5CF6",
 };
 
 export const RUN_STATUS_COLORS: Record<string, string> = {

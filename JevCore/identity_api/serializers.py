@@ -25,13 +25,17 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ('id', 'username', 'email', 'password', 'first_name', 'last_name',
-                  'account', 'auth_provider', 'avatar_url',
+                  'auth_provider', 'avatar_url',
                   'is_active', 'is_staff', 'status')
         extra_kwargs = {'password': {'write_only': True}}
 
     def create(self, validated_data):
         password = validated_data.pop('password', None)
-        user = User(**validated_data)
+        # Tenant account is never client-supplied — derive from the
+        # authenticated user creating this record.
+        request = self.context.get('request')
+        account = getattr(request.user, 'account', None) if request else None
+        user = User(account=account, **validated_data)
         if password:
             user.set_password(password)
         user.save()
@@ -39,6 +43,7 @@ class UserSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         password = validated_data.pop('password', None)
+        validated_data.pop('account', None)  # never allow account reassignment
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         if password:
@@ -86,13 +91,14 @@ class RoleSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Role
-        fields = ('id', 'title', 'user', 'permission', 'app', 'account')
+        fields = ('id', 'title', 'user', 'permission', 'app')
         read_only_fields = ('id',)
 
     def validate(self, data):
         user = data.get('user')
         app = data.get('app')
-        account = data.get('account')
+        request = self.context.get('request')
+        account = getattr(request.user, 'account', None) if request else None
 
         if user and app:
             existing_roles = Role.objects.filter(user=user, app=app, account=account)
@@ -101,6 +107,7 @@ class RoleSerializer(serializers.ModelSerializer):
             if existing_roles.exists():
                 raise serializers.ValidationError("Role for this user and app already exists.")
 
+        data['account'] = account
         return data
 
 

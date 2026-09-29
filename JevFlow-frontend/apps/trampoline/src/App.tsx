@@ -5,9 +5,12 @@ import CssBaseline from "@mui/material/CssBaseline";
 import { Box, Typography } from "@mui/material";
 import {
   Dashboard as DashboardIcon,
+  Cable as IntegrationsIcon,
   AccountTree as MapsIcon,
   PlayArrow as RunsIcon,
   Webhook as WebhooksIcon,
+  FactCheck as ApprovalsIcon,
+  Forum as ToolsIcon,
   People as UsersIcon,
   Settings as SettingsIcon,
 } from "@mui/icons-material";
@@ -21,16 +24,23 @@ import { ResourcePage } from "@vhrs/user-interfaces";
 import DecisionMapEditor from "./components/DecisionMapEditor";
 import DecisionMapsList from "./components/DecisionMapsList";
 import WorkflowRuns from "./components/WorkflowRuns";
+import DashboardPage from "./components/DashboardPage";
+import IntegrationsPage from "./components/IntegrationsPage";
+import ApprovalReview from "./components/ApprovalReview";
+import ApprovalsPage from "./components/ApprovalsPage";
+import ToolsPage from "./components/ToolsPage";
 import UsersPage from "./components/UsersPage";
 import OAuthSettings from "./components/OAuthSettings";
-import StatsBar from "./components/StatsBar";
 import { resources } from "@vhrs/resources";
 
 export const menuItems: MenuItemType[] = [
   { label: "Dashboard", icon: <DashboardIcon />, path: "/dashboard" },
+  { label: "Integrations", icon: <IntegrationsIcon />, path: "/integrations" },
   { label: "Decision Maps", icon: <MapsIcon />, path: "/maps" },
   { label: "Runs", icon: <RunsIcon />, path: "/runs" },
+  { label: "Approvals", icon: <ApprovalsIcon />, path: "/approvals" },
   { label: "Hooks", icon: <WebhooksIcon />, path: "/webhooks" },
+  { label: "Tools", icon: <ToolsIcon />, path: "/tools" },
   { label: "Users", icon: <UsersIcon />, path: "/users" },
   { label: "Settings", icon: <SettingsIcon />, path: "/settings" },
 ];
@@ -47,14 +57,7 @@ const ResourceRoute: React.FC<{ resourceKey: keyof typeof resources }> = ({ reso
   return <ResourcePage resource={resource} auth={auth} />;
 };
 
-const Dashboard: React.FC = () => (
-  <Box sx={{ p: 3 }}>
-    <StatsBar />
-    <Typography variant="h5" sx={{ mt: 2 }}>
-      JevFlow Dashboard
-    </Typography>
-  </Box>
-);
+const Dashboard: React.FC = () => <DashboardPage />;
 
 const AppContent: React.FC = () => {
   const auth = useAuth();
@@ -77,10 +80,14 @@ const AppContent: React.FC = () => {
       >
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="dashboard" element={<Dashboard />} />
+        <Route path="integrations" element={<IntegrationsPage />} />
         <Route path="maps" element={<DecisionMapsList />} />
         <Route path="maps/:id" element={<DecisionMapEditor />} />
         <Route path="runs" element={<WorkflowRuns />} />
+        <Route path="approvals" element={<ApprovalsPage />} />
+        <Route path="approvals/:token" element={<ApprovalReview />} />
         <Route path="webhooks" element={<ResourceRoute resourceKey="WebhookEndpoint" />} />
+        <Route path="tools" element={<ToolsPage />} />
         <Route path="users" element={<UsersPage />} />
         <Route path="settings" element={<OAuthSettings />} />
       </Route>

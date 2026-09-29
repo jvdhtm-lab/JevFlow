@@ -149,8 +149,8 @@ annotateResource("WebhookEndpoint", {
       asColor: getHookColor,
       asListItem: (data: any) => (
         <span>
-          <ColorDot color={getHookColor(data)} /> {data.direction} · {data.source} ·{" "}
-          {data.integration_name || `integration ${data.integration}`}
+          <ColorDot color={getHookColor(data)} /> {data?.direction} · {data?.source} ·{" "}
+          {data?.integration_name || `integration ${data?.integration}`}
         </span>
       ),
     },

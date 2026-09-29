@@ -28,40 +28,52 @@ class EntityPermission(BasePermission):
         if request.user.is_superuser or getattr(request.user, 'is_admin', False):
             return True
 
-        entity_name = self._get_entity_name(view)
-        if not entity_name:
+        entity_names = self._get_entity_names(view)
+        if not entity_names:
             return True
 
-        user_permission = self._get_user_permission(request.user, entity_name)
+        user_permission = self._get_user_permission(request.user, entity_names)
         if not user_permission:
             return False
 
         required = self.METHOD_PERMISSION_MAP.get(request.method, 'RWD')
         return self._has_sufficient_permission(user_permission, required)
 
-    def _get_entity_name(self, view):
-        """Extract entity name from the viewset's queryset model"""
+    def _get_entity_names(self, view):
+        """Extract all plausible entity names from the viewset's queryset model."""
         if hasattr(view, 'queryset') and view.queryset is not None:
             model = view.queryset.model
             app_label = model._meta.app_label
             model_name = model._meta.model_name
-            return f"{app_label}_{model_name}"  # Matches entity_name format
+            class_name = model.__name__
+            return [
+                model_name,
+                f"{app_label}_{model_name}",
+                class_name,
+                f"{app_label}.{class_name}",
+            ]
 
         # Fallback to module parsing
         if hasattr(view, '__class__'):
             module = view.__class__.__module__
             if '.' in module:
-                parts = module.split('.')
-                if len(parts) >= 2:
-                    return parts[0]  # Fallback to just app label
+                return [module.split('.')[0]]
 
-        return None
+        return []
 
-    def _get_user_permission(self, user, entity_name):
-        role = Role.objects.filter(
+    def _get_user_permission(self, user, entity_names):
+        if isinstance(entity_names, str):
+            entity_names = [entity_names]
+        roles = Role.objects.filter(
             user=user,
-            app__entity_name=entity_name
-        ).select_related('app').first()
+            app__entity_name__in=entity_names
+        ).select_related('app')
+        account_id = getattr(user, 'account_id', None)
+        if account_id is not None:
+            role = roles.filter(account_id=account_id).first()
+            if role:
+                return role.permission
+        role = roles.filter(account__isnull=True).first() or roles.first()
         return role.permission if role else None
 
     def _has_sufficient_permission(self, user_perm, required):

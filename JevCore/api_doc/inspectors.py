@@ -79,3 +79,33 @@ class relatedResourceFieldInspector(RelatedFieldInspector):
             return SwaggerType(type=openapi.TYPE_STRING, format=openapi.FORMAT_URI)
 
         return SwaggerType(type=openapi.TYPE_STRING)
+
+
+class sortableFieldInspector(FieldInspector):
+    """Stamps scalar field schemas with x-vhrs-sortable.
+
+    A pass-through inspector (mirrors CamelCaseJSONFilter): it never wins the
+    field probe, so type-specific inspectors (enums, related fields, JSON,
+    etc.) keep their schemas. Being first in the chain, its process_result
+    runs last and can annotate the final schema. Only scalar schemas are
+    marked; object/array (JSON) schemas, $refs and non-Schema results are
+    left untouched.
+    """
+
+    SCALAR_TYPES = (
+        openapi.TYPE_STRING,
+        openapi.TYPE_INTEGER,
+        openapi.TYPE_NUMBER,
+        openapi.TYPE_BOOLEAN,
+    )
+
+    def field_to_swagger_object(
+        self, field, swagger_object_type, use_references, **kwargs
+    ):
+        return NotHandled
+
+    def process_result(self, result, method_name, obj, **kwargs):
+        if method_name == "field_to_swagger_object" and result is not None:
+            if getattr(result, "type", None) in self.SCALAR_TYPES:
+                result["x-vhrs-sortable"] = True
+        return result

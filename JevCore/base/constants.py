@@ -98,19 +98,26 @@ SYNC_RESULT_CHOICES = (
 
 # ==================== DECISIONS ====================
 
-# Channels a human can be notified on for approval nodes. The target + auth
-# are provided per tool record (customer-provided, like outbound hooks).
+# Channels a human can be notified on for approval nodes. The destination is
+# always resolved from the bound integration or outbound hook — no per-tool
+# target/config fields.
 APPROVAL_TOOL_CHOICES = (
-    ('smtp_email', 'SMTP Email'),
-    ('slack_channel', 'Slack Channel'),
-    ('teams', 'Teams'),
-    ('whatsapp', 'WhatsApp'),
+    ('message', 'Message'),
+    ('email', 'Email'),
 )
 
 APPROVAL_REQUEST_STATUS_CHOICES = (
     ('pending', 'Pending'),
     ('approved', 'Approved'),
     ('declined', 'Declined'),
+)
+
+# How an approval tool delivers the notification. Tools are outbound-only:
+# integration = post via the integration's channel/credentials;
+# hook = post via a defined outbound webhook endpoint.
+APPROVAL_TOOL_VIA_CHOICES = (
+    ('integration', 'Integration'),
+    ('hook', 'Outbound hook'),
 )
 
 # ==================== DECISIONS ====================
@@ -131,6 +138,7 @@ DECISION_NODE_TYPE_CHOICES = (
     ('action', 'Action'),
     ('branch', 'Branch'),
     ('approval', 'Approval'),
+    ('llm_agent', 'LLM Agent'),
 )
 
 DECISION_RUN_STATUS_CHOICES = (

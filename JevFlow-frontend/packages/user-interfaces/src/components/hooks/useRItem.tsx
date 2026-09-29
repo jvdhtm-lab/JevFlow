@@ -21,9 +21,10 @@ export const useRItem = (resource?: ResourceObject, options?: ResourceOptions): 
   const [error, setError] = useState<any>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const { get, resourceVersions } = useDataCacheState();
-  const { set, updateNode, appendNode, removeNode, invalidate, invalidateFiltered, mergeFiltered, bumpResourceVersion } = useDataCacheDispatch();
+  const { set, updateNodeAll, appendNode, removeNode, removeNodeAll, invalidateFiltered, mergeFiltered, bumpResourceVersion } = useDataCacheDispatch();
 
   const mountedRef = useRef(true);
+  const fetchOnDeclareStartedRef = useRef(false);
   const epochRef = useRef(0);
   const loadingCountRef = useRef(0);
 
@@ -35,6 +36,8 @@ export const useRItem = (resource?: ResourceObject, options?: ResourceOptions): 
   getRef.current = get;
   const setRef = useRef(set);
   setRef.current = set;
+  const mergeFilteredRef = useRef(mergeFiltered);
+  mergeFilteredRef.current = mergeFiltered;
 
   const startLoading = () => {
     loadingCountRef.current += 1;
@@ -49,6 +52,7 @@ export const useRItem = (resource?: ResourceObject, options?: ResourceOptions): 
   };
 
   const getCacheKey = useCallback((res: ResourceObject, opts?: ResourceOptions): string => {
+    if (!res) return "";
     if (opts?.url || opts?.sortBy || opts?.filter || opts?.page || opts?.pageSize) {
       return res.name + '::' + hid({
         url: opts?.url,
@@ -78,16 +82,16 @@ export const useRItem = (resource?: ResourceObject, options?: ResourceOptions): 
     setError(null);
 
     try {
-      const request = {
+      const request: any = {
         endpoint: makeUrlForItem(idNum, res, opts),
         name: "fetchItem",
         method: "get",
-        forceNoDedup: opts?.forceNoDedup,
+        forceNoDedup: force || opts?.forceNoDedup,
         headers: opts?.headers,
       };
 
       if (opts?.params) {
-        (request.endpoint as any).params = opts.params;
+        request.endpoint.params = opts.params;
       }
 
       const fetchedData = await dataLayerObj.requestApi(request);
@@ -123,20 +127,18 @@ export const useRItem = (resource?: ResourceObject, options?: ResourceOptions): 
 
     startLoading();
     setError(null);
-    const url = makeUrlForItems(res, opts);
-    console.log(`[useRItem] fetchItems force=${force} url=${url}`);
 
     try {
-      const request = {
+      const request: any = {
         endpoint: makeUrlForItems(res, opts),
         name: "fetchItems",
         method: "get",
-        forceNoDedup: opts?.forceNoDedup,
+        forceNoDedup: force || opts?.forceNoDedup,
         headers: opts?.headers,
       };
 
       if (opts?.params) {
-        (request.endpoint as any).params = opts.params;
+        request.endpoint.params = opts.params;
       }
 
       const fetchedData = await dataLayerObj.requestApi(request);
@@ -151,12 +153,7 @@ export const useRItem = (resource?: ResourceObject, options?: ResourceOptions): 
       setRef.current(cacheKey, { total, nodes: normalizedData });
 
       if (cacheKey.includes('::')) {
-        const mainEntry = getRef.current(res.name);
-        if (mainEntry) {
-          const byId = new Map((mainEntry.nodes || []).map((n: any) => [n.id, n]));
-          for (const n of normalizedData) byId.set(n.id, n);
-          setRef.current(res.name, { total: byId.size, nodes: [...byId.values()] });
-        }
+        mergeFilteredRef.current(res.name, normalizedData, total);
       }
 
       return fetchedData;
@@ -181,12 +178,12 @@ export const useRItem = (resource?: ResourceObject, options?: ResourceOptions): 
     startLoading();
 
     try {
-      const request = {
+      const request: any = {
         endpoint: isNew ? makeUrlForItems(res, opts) : makeUrlForItem(id, res, opts),
         name: "saveItem",
-        method: isNew ? "post" : "put",
+        method: isNew ? "post" : "patch",
         data: newData,
-        forceNoDedup: opts?.forceNoDedup,
+        forceNoDedup: true,
         headers: opts?.headers,
       };
 
@@ -194,19 +191,19 @@ export const useRItem = (resource?: ResourceObject, options?: ResourceOptions): 
 
       if (!mountedRef.current || epochRef.current !== currentEpoch) return;
 
-      const mainEntry = getRef.current(res.name);
-      if (mainEntry) {
-        if (isNew) {
-          const nodes = [...(mainEntry.nodes || []), savedData.data];
-          setRef.current(res.name, { total: nodes.length, nodes });
-        } else {
-          const nodes = (mainEntry.nodes || []).map((n: any) => String(n.id) === String(id) ? savedData.data : n);
-          setRef.current(res.name, { ...mainEntry, nodes });
+      if (isNew) {
+        const mainEntry = getRef.current(res.name);
+        if (mainEntry) {
+          appendNode(res.name, savedData.data);
         }
-      }
-
-      if (cacheKey !== res.name) {
-        invalidate(res.name);
+        if (cacheKey !== res.name) {
+          invalidateFiltered(res.name);
+        }
+        bumpResourceVersion(res.name);
+      } else {
+        // Update the node in every cached list (main + filtered) so callers
+        // re-render only where the data changed, without a full list refetch.
+        updateNodeAll(res.name, id, savedData.data);
       }
 
       setError(null);
@@ -218,7 +215,7 @@ export const useRItem = (resource?: ResourceObject, options?: ResourceOptions): 
     } finally {
       stopLoading();
     }
-  }, [getCacheKey, invalidate]);
+  }, [getCacheKey, updateNodeAll, appendNode, invalidateFiltered, bumpResourceVersion]);
 
   const deleteItem = useCallback(async (id: string, force = false): Promise<boolean> => {
     const res = resourceRef.current;
@@ -231,28 +228,36 @@ export const useRItem = (resource?: ResourceObject, options?: ResourceOptions): 
     startLoading();
 
     try {
-      const request = {
+      const request: any = {
         endpoint: makeUrlForItem(id, res, opts),
         name: "deleteItem",
         method: "delete",
-        forceNoDedup: opts?.forceNoDedup,
+        forceNoDedup: force,
         headers: opts?.headers,
       };
 
       await dataLayerObj.requestApi(request);
 
-      if (!mountedRef.current || epochRef.current !== currentEpoch) return true;
+      if (!mountedRef.current || epochRef.current !== currentEpoch) return false;
 
-      invalidate(res.name);
+      removeNodeAll(res.name, id);
+
+      if (cacheKey !== res.name) {
+        invalidateFiltered(res.name);
+      }
+
+      bumpResourceVersion(res.name);
+
+      setError(null);
       return true;
     } catch (err: any) {
-      if (!mountedRef.current || epochRef.current !== currentEpoch) return true;
+      if (!mountedRef.current || epochRef.current !== currentEpoch) return false;
       setError(err);
-      throw err;
+      return false;
     } finally {
       stopLoading();
     }
-  }, [getCacheKey, invalidate]);
+  }, [getCacheKey, removeNodeAll, invalidateFiltered, bumpResourceVersion]);
 
   const createItem = useCallback(async (data: any): Promise<any> => {
     const res = resourceRef.current;
@@ -262,18 +267,24 @@ export const useRItem = (resource?: ResourceObject, options?: ResourceOptions): 
     const cacheKey = getCacheKey(res, opts);
     startLoading();
     try {
-      const request = {
+      const request: any = {
         endpoint: makeUrlForItems(res, opts),
         name: "createItem",
         method: "post",
         data,
+        forceNoDedup: true,
+        headers: opts?.headers,
       };
       const savedData = await dataLayerObj.requestApi(request);
       if (!mountedRef.current || epochRef.current !== currentEpoch) return;
       const mainEntry = getRef.current(res.name);
-      const nodes = [...(mainEntry?.nodes || []), savedData.data];
-      setRef.current(res.name, { total: nodes.length, nodes });
-      invalidate(res.name);
+      if (mainEntry) {
+        appendNode(res.name, savedData.data);
+      }
+      if (cacheKey !== res.name) {
+        invalidateFiltered(res.name);
+      }
+      bumpResourceVersion(res.name);
       setError(null);
       return savedData;
     } catch (err: any) {
@@ -283,15 +294,55 @@ export const useRItem = (resource?: ResourceObject, options?: ResourceOptions): 
     } finally {
       stopLoading();
     }
-  }, [getCacheKey]);
+  }, [getCacheKey, appendNode, invalidateFiltered, bumpResourceVersion]);
 
   useEffect(() => {
-    if (options?.fetchOnDeclare === false) return;
-    fetchItems(options?.force);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
   }, []);
 
-  const data = get(getCacheKey(resource!, options))?.nodes ?? [];
-  const total = get(getCacheKey(resource!, options))?.total ?? 0;
+  useEffect(() => {
+    if (!resource || options?.fetchOnDeclare === false) return;
+    if (fetchOnDeclareStartedRef.current) return;
+    fetchOnDeclareStartedRef.current = true;
+    void fetchItems(!!options?.force);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resource, options?.fetchOnDeclare]);
+
+  // forceFetchOnWinBlur: refetch when window regains focus
+  useEffect(() => {
+    if (!options?.forceFetchOnWinBlur || !resource) return;
+    const handleFocus = () => void fetchItems(true);
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [options?.forceFetchOnWinBlur, resource, fetchItems]);
+
+  // forceFetchOnNavigation: refetch on route change
+  const prevPathRef = useRef(window.location.pathname);
+  useEffect(() => {
+    if (!options?.forceFetchOnNavigation || !resource) return;
+    const handlePopState = () => {
+      const newPath = window.location.pathname;
+      if (prevPathRef.current !== newPath) {
+        prevPathRef.current = newPath;
+        void fetchItems(true);
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [options?.forceFetchOnNavigation, resource, fetchItems]);
+
+  // resourceVersions: refetch when save/create/delete bumps the version
+  const resourceVersion = resource ? (resourceVersions[resource.name] || 0) : 0;
+  const prevVersionRef = useRef(0);
+  useEffect(() => {
+    if (!resource || resourceVersion === 0) return;
+    if (prevVersionRef.current === resourceVersion) return;
+    prevVersionRef.current = resourceVersion;
+    void fetchItems(true);
+  }, [resourceVersion, resource, fetchItems]);
+
+  const data = resource ? (get(getCacheKey(resource, options))?.nodes ?? []) : [];
+  const total = resource ? (get(getCacheKey(resource, options))?.total ?? 0) : 0;
   return { data, total, isLoading, error, fetchItems, fetchItem, createItem, saveItem, deleteItem };
 };

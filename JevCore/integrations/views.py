@@ -111,6 +111,7 @@ def _receive_for_endpoint(view, endpoint, request):
 
     SyncLog.objects.create(
         integration=endpoint.integration,
+        account=endpoint.account,
         direction='in',
         event_type=f"webhook:{endpoint.source}",
         payload=payload,

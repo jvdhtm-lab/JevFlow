@@ -25,9 +25,6 @@ class CustomUserFilter(django_filters.FilterSet):
     auth_provider = django_filters.ChoiceFilter(
         choices=AUTH_PROVIDER_CHOICES, label='Auth provider',
         help_text='Exact match: local, google, github, x, outlook or slack.')
-    account = django_filters.NumberFilter(
-        field_name='account', lookup_expr='exact', label='Account ID',
-        help_text='Exact account (tenant) ID.')
     is_active = django_filters.BooleanFilter(label='Is active', help_text='Exact boolean match.')
     is_staff = django_filters.BooleanFilter(label='Is staff', help_text='Exact boolean match.')
     status = django_filters.ChoiceFilter(
@@ -42,7 +39,7 @@ class CustomUserFilter(django_filters.FilterSet):
     class Meta:
         model = CustomUser
         fields = ['id', 'username', 'email', 'first_name', 'last_name',
-                  'auth_provider', 'account', 'is_active', 'is_staff',
+                  'auth_provider', 'is_active', 'is_staff',
                   'status', 'date_joined_after', 'date_joined_before']
 
 
@@ -84,16 +81,13 @@ class RoleFilter(django_filters.FilterSet):
     app = django_filters.NumberFilter(
         field_name='app', lookup_expr='exact', label='App ID',
         help_text='Exact app (entity) ID.')
-    account = django_filters.NumberFilter(
-        field_name='account', lookup_expr='exact', label='Account ID',
-        help_text='Exact account (tenant) ID.')
     permission = django_filters.ChoiceFilter(
         choices=PERMISSION_CHOICES, label='Permission',
         help_text='Exact permission tier: R, W, RW or RWD.')
 
     class Meta:
         model = Role
-        fields = ['id', 'title', 'user', 'app', 'account', 'permission']
+        fields = ['id', 'title', 'user', 'app', 'permission']
 
 
 class LoginFilter(django_filters.FilterSet):

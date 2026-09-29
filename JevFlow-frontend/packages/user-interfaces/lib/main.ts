@@ -11,5 +11,8 @@ export { default as RelatedFieldInput } from "../src/components/Dynamics/Related
 export { default as Login } from "../src/components/Login";
 export { WebhookEndpointForm, WebhookEndpointTable, WebhookEndpointList } from "../src/components/WebhookEndpoint";
 export { UserForm, UserTable, UserList } from "../src/components/User";
+export { ApprovalRequestForm, ApprovalRequestTable, ApprovalRequestList } from "../src/components/ApprovalRequest";
+export { ApprovalToolForm, ApprovalToolTable, ApprovalToolList } from "../src/components/ApprovalTool";
+export { IntegrationForm, IntegrationTable, IntegrationList } from "../src/components/Integration";
 export * from "../src/annotates/theme";
 import "../src/annotates";

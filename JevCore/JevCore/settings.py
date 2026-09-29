@@ -30,9 +30,13 @@ AUTH_USER_MODEL = 'identity_api.CustomUser'
 # SWAGGER (OpenAPI) Settings — same as VHRS
 SWAGGER_SETTINGS = {
     "DEFAULT_FIELD_INSPECTORS": [
+        # Pass-through inspectors registered FIRST so their process_result runs
+        # last and can annotate the final schema (mirrors VHRS pattern).
+        "api_doc.inspectors.sortableFieldInspector",
         "drf_yasg.inspectors.CamelCaseJSONFilter",
         "drf_yasg.inspectors.ReferencingSerializerInspector",
         "api_doc.inspectors.relatedResourceFieldInspector",
+        "api_doc.inspectors.sortableFieldInspector",
         "drf_yasg.inspectors.ChoiceFieldInspector",
         "drf_yasg.inspectors.FileFieldInspector",
         "drf_yasg.inspectors.DictFieldInspector",

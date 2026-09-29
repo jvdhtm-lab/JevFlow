@@ -25,11 +25,11 @@ export interface ApprovalRequest {
   approval_tool?: number | null;
   token?: string;
   status?: 'pending' | 'approved' | 'declined';
+  summary?: string;
   payload?: Record<string, unknown> | null;
   decided_by?: number;
   decided_at?: string;
   review_url?: string;
-  account?: number | null;
   created_date_time?: string;
   updated_date_time?: string;
 }
@@ -37,11 +37,10 @@ export interface ApprovalTool {
   id?: number;
   name?: string | null;
   description?: string | null;
-  tool_type?: 'smtp_email' | 'slack_channel' | 'teams' | 'whatsapp';
-  target?: string;
-  config?: Record<string, unknown> | null;
-  is_active?: boolean;
-  account?: number | null;
+  tool_type?: 'message' | 'email';
+  via?: 'integration' | 'hook';
+  webhook_endpoint?: number | null;
+  integration?: number | null;
   status?: 'activated' | 'deactivated' | 'pending' | 'confirmed' | 'archived';
   created_date_time?: string;
   updated_date_time?: string;
@@ -95,7 +94,6 @@ export interface DecisionMap {
   layout?: Record<string, unknown> | null;
   spec_yaml?: string;
   trigger_source?: 'webhook' | 'manual' | 'schedule' | 'event';
-  account?: number | null;
   status?: 'activated' | 'deactivated' | 'pending' | 'confirmed' | 'archived';
   created_date_time?: string;
   updated_date_time?: string;
@@ -114,7 +112,8 @@ export interface DecisionNode {
     | 'decision'
     | 'action'
     | 'branch'
-    | 'approval';
+    | 'approval'
+    | 'llm_agent';
   title?: string | null;
   config?: Record<string, unknown> | null;
   position_x?: number;
@@ -199,7 +198,6 @@ export interface Integration {
   owner?: number | null;
   last_sync_at?: string | null;
   last_error?: string | null;
-  account?: number | null;
   status?: 'activated' | 'deactivated' | 'pending' | 'confirmed' | 'archived';
   created_date_time?: string;
   updated_date_time?: string;
@@ -248,7 +246,6 @@ export interface Role {
   user?: number;
   permission?: 'R' | 'W' | 'RW' | 'RWD';
   app?: number;
-  account?: number | null;
 }
 export interface SocialAccount {
   id?: number;
@@ -272,7 +269,6 @@ export interface SyncLog {
   result?: 'success' | 'error' | 'skipped';
   error_msg?: string | null;
   duration_ms?: number | null;
-  account?: number | null;
   status?: 'activated' | 'deactivated' | 'pending' | 'confirmed' | 'archived';
   created_date_time?: string;
   updated_date_time?: string;
@@ -284,7 +280,6 @@ export interface User {
   password?: string;
   first_name?: string;
   last_name?: string;
-  account?: number | null;
   auth_provider?: 'local' | 'google' | 'github' | 'x' | 'outlook' | 'slack';
   avatar_url?: string | null;
   is_active?: boolean;
@@ -312,7 +307,6 @@ export interface WebhookEndpoint {
   outbound_url?: string;
   auth_required?: string;
   outbound_auth?: string;
-  account?: number | null;
   status?: 'activated' | 'deactivated' | 'pending' | 'confirmed' | 'archived';
   created_date_time?: string;
   updated_date_time?: string;

@@ -4,6 +4,7 @@ from base.models import BaseModel, TenantBaseModel
 from base.constants import (
     APPROVAL_REQUEST_STATUS_CHOICES,
     APPROVAL_TOOL_CHOICES,
+    APPROVAL_TOOL_VIA_CHOICES,
     DECISION_TRIGGER_CHOICES,
     DECISION_NODE_TYPE_CHOICES,
     DECISION_RUN_STATUS_CHOICES,
@@ -97,20 +98,27 @@ class DecisionRun(BaseModel):
 
 
 class ApprovalTool(TenantBaseModel):
-    """A predefined notification channel for approval nodes.
+    """A predefined notification channel for approval nodes (outbound-only).
 
-    The target + auth are provided by the customer (like outbound hooks):
-    an email address, a channel webhook URL, or a phone number, plus optional
-    credentials in ``config``. Approval nodes bind via
+    Type is ``message`` (channel message) or ``email`` (with the auto-generated
+    approve/decline link). Delivery is always outbound: ``via='integration'``
+    posts through the bound integration's channel/credentials, ``via='hook'``
+    through the bound outbound webhook endpoint. Active/inactive uses the
+    inherited ``status`` (activated/deactivated). Approval nodes bind via
     ``config.approval_tool = <id>``.
     """
     tool_type = models.CharField(max_length=20, choices=APPROVAL_TOOL_CHOICES)
-    target = models.CharField(
-        max_length=500,
-        help_text='Email address, channel webhook URL or phone number (customer-provided).',
+    via = models.CharField(
+        max_length=20, choices=APPROVAL_TOOL_VIA_CHOICES, default='integration'
     )
-    config = models.JSONField(null=True, blank=True)
-    is_active = models.BooleanField(default=True)
+    webhook_endpoint = models.ForeignKey(
+        'integrations.WebhookEndpoint', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='approval_tools',
+    )
+    integration = models.ForeignKey(
+        'integrations.Integration', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='approval_tools',
+    )
 
 
 class ApprovalRequest(TenantBaseModel):
@@ -136,6 +144,10 @@ class ApprovalRequest(TenantBaseModel):
     status = models.CharField(
         max_length=20, choices=APPROVAL_REQUEST_STATUS_CHOICES, default='pending'
     )
+    # Human-readable "what am I approving", generated at notify time from the
+    # trigger context (issue key, PR title, alert title, ...).
+    summary = models.CharField(max_length=300, blank=True, default='')
+    description = models.TextField(null=True, blank=True)
     payload = models.JSONField(null=True, blank=True)
     decided_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,

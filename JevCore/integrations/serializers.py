@@ -7,7 +7,7 @@ class IntegrationSerializer(serializers.ModelSerializer):
         model = Integration
         fields = ('id', 'name', 'description', 'purpose', 'integration_type', 'base_url',
                   'connection_status', 'config', 'credentials_hint', 'owner',
-                  'last_sync_at', 'last_error', 'account', 'status',
+                  'last_sync_at', 'last_error', 'status',
                   'created_date_time', 'updated_date_time')
         read_only_fields = ('id', 'created_date_time', 'updated_date_time')
 
@@ -28,7 +28,7 @@ class WebhookEndpointSerializer(serializers.ModelSerializer):
                   'source', 'target_path', 'target_url', 'auth_scheme',
                   'auth_username', 'is_active', 'last_received_at',
                   'inbound_url', 'outbound_url', 'auth_required', 'outbound_auth',
-                  'account', 'status', 'created_date_time', 'updated_date_time')
+                  'status', 'created_date_time', 'updated_date_time')
         read_only_fields = ('id', 'created_date_time', 'updated_date_time')
         extra_kwargs = {'auth_token': {'write_only': True}}
 
@@ -78,5 +78,5 @@ class SyncLogSerializer(serializers.ModelSerializer):
         model = SyncLog
         fields = ('id', 'name', 'description', 'integration', 'direction',
                   'event_type', 'payload', 'result', 'error_msg', 'duration_ms',
-                  'account', 'status', 'created_date_time', 'updated_date_time')
+                  'status', 'created_date_time', 'updated_date_time')
         read_only_fields = ('id', 'created_date_time', 'updated_date_time')
