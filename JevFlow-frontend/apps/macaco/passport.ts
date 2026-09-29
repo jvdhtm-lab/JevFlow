@@ -104,20 +104,22 @@ async function socialLogin(
   // The proxy verifies with the provider; Django owns the session: it finds
   // the user by provider_uid (else email), creates user + tenant account +
   // Owner roles on first login, and returns the DRF token we stash in session.
-  try {
-    const serviceToken = process.env.API_TOKEN || "";
-    const result = await dataLayerObj.requestApi({
-      endpoint: "/auth/social/",
-      name: "SocialAuth",
-      method: "post",
-      data: profile,
-      headers: serviceToken ? { Authorization: `Token ${serviceToken}` } : {},
-    });
-    req.session.user = result.data;
-    done(null, result.data.user || profile);
-  } catch (err) {
-    done(err);
-  }
+    try {
+      const serviceToken = process.env.API_TOKEN || "";
+      const result = await dataLayerObj.requestApi({
+        endpoint: "/auth/social/",
+        name: "SocialAuth",
+        method: "post",
+        data: profile,
+        headers: serviceToken ? { Authorization: `Token ${serviceToken}` } : {},
+      });
+      // Passport 0.6 regenerates the session after login, so stash the payload
+      // on req; the route handler copies it into the fresh session.
+      (req as any).authPayload = result.data;
+      done(null, result.data.user || profile);
+    } catch (err) {
+      done(err);
+    }
 }
 
 const isReal = (keys: ProviderKeys) =>
@@ -348,18 +350,21 @@ export function registerAuthRoutes(app: any) {
   if ((passport as any)._strategy?.google || (passport as any)._strategies?.google) {
     app.get("/auth/google", passport.authenticate("google", { scope: ["email", "profile"] }));
     app.get("/auth/google/callback", passport.authenticate("google", { failureRedirect: "/login" }), (req: any, res: any) => {
+      if (req.authPayload) req.session.user = req.authPayload;
       res.redirect("/");
     });
   }
   if ((passport as any)._strategies?.github) {
     app.get("/auth/github", passport.authenticate("github", { scope: ["user:email"] }));
     app.get("/auth/github/callback", passport.authenticate("github", { failureRedirect: "/login" }), (req: any, res: any) => {
+      if (req.authPayload) req.session.user = req.authPayload;
       res.redirect("/");
     });
   }
   if ((passport as any)._strategies?.x) {
     app.get("/auth/x", passport.authenticate("x"));
     app.get("/auth/x/callback", passport.authenticate("x", { failureRedirect: "/login" }), (req: any, res: any) => {
+      if (req.authPayload) req.session.user = req.authPayload;
       res.redirect("/");
     });
   }
@@ -371,7 +376,8 @@ export function registerAuthRoutes(app: any) {
   });
   if ((passport as any)._strategies?.slack) {
     app.get("/auth/slack", passport.authenticate("slack" as any));
-    app.get("/auth/slack/callback", passport.authenticate("slack" as any, { failureRedirect: "/login" }), (_req: any, res: any) => {
+    app.get("/auth/slack/callback", passport.authenticate("slack" as any, { failureRedirect: "/login" }), (req: any, res: any) => {
+      if (req.authPayload) req.session.user = req.authPayload;
       res.redirect("/");
     });
   }

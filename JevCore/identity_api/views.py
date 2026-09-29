@@ -102,8 +102,9 @@ class PublicProvidersView(APIView):
 class SocialLoginView(APIView):
     """Server-to-server social login (called by macaco with its service token).
 
-    The proxy already verified the profile with the provider. First login
-    creates the user + SocialAccount link + tenant Account + Owner RWD roles;
+    The proxy already verified the profile with the provider.     First login
+    creates the user + SocialAccount link + tenant Account + read-only (`R`)
+    roles on all apps so they can look around but not change shared config;
     returning users (by provider_uid, else email) just log in.
     """
     permission_classes = [IsAuthenticated]
@@ -181,8 +182,8 @@ class SocialLoginView(APIView):
                         app=app,
                         account=account,
                         defaults={
-                            'title': 'Owner RWD',
-                            'permission': 'RWD',
+                            'title': 'Social user (read-only)',
+                            'permission': 'R',
                             'status': 'activated',
                         },
                     )
