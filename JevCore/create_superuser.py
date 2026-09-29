@@ -51,7 +51,7 @@ def create_superuser():
                 continue
             OAuthProvider.objects.get_or_create(
                 provider=provider,
-                defaults={'status': 'activated'},
+                defaults={'status': 'activated', 'is_active': True},
             )
         print('OAuth providers seeded.')
     except Exception as exc:

@@ -6,7 +6,7 @@ from django.core.management.base import BaseCommand
 from django.utils import timezone
 from faker import Faker
 
-from identity_api.models import Account, CustomUser, App, Role, SocialAccount
+from identity_api.models import Account, CustomUser, App, Role, SocialAccount, OAuthProvider
 from integrations.models import Integration, WebhookEndpoint, SyncLog
 from decisions.models import (
     DecisionMap, DecisionNode, DecisionEdge, DecisionRun,
@@ -51,6 +51,8 @@ class Command(BaseCommand):
 
         self.faker = Faker()
         num_accounts = options['accounts']
+
+        self.seed_oauth_providers()
 
         for account_idx in range(num_accounts):
             account = self.create_account(account_idx + 1)
@@ -123,6 +125,17 @@ class Command(BaseCommand):
             }
         )
         return account
+
+    def seed_oauth_providers(self):
+        from base.constants import AUTH_PROVIDER_CHOICES
+        for provider, _label in AUTH_PROVIDER_CHOICES:
+            if provider == 'local':
+                continue
+            OAuthProvider.objects.get_or_create(
+                provider=provider,
+                defaults={'status': 'activated', 'is_active': True},
+            )
+        self.stdout.write('OAuth provider rows ensured.')
 
     def create_users(self, account):
         users = []

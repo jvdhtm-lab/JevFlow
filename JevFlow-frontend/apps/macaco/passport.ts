@@ -26,6 +26,8 @@ interface ProviderKeys {
   configured: boolean;
 }
 
+const CALLBACK_BASE = process.env.OAUTH_CALLBACK_BASE_URL || "http://localhost:5176";
+
 const ENV_FALLBACK: Record<string, { id: string; secret: string }> = {
   google: { id: "GOOGLE_CLIENT_ID", secret: "GOOGLE_CLIENT_SECRET" },
   github: { id: "GITHUB_CLIENT_ID", secret: "GITHUB_CLIENT_SECRET" },
@@ -167,7 +169,7 @@ export const initPassport = async (app: any) => {
         {
           clientID: keys.google.clientID,
           clientSecret: keys.google.clientSecret,
-          callbackURL: "/auth/google/callback",
+          callbackURL: `${CALLBACK_BASE}/auth/google/callback`,
           passReqToCallback: true,
         },
         async (req: any, at: string, rt: string, profile: any, done: any) => {
@@ -199,7 +201,7 @@ export const initPassport = async (app: any) => {
         {
           clientID: keys.github.clientID,
           clientSecret: keys.github.clientSecret,
-          callbackURL: "/auth/github/callback",
+          callbackURL: `${CALLBACK_BASE}/auth/github/callback`,
           scope: ["user:email"],
           passReqToCallback: true,
         },
@@ -236,7 +238,7 @@ export const initPassport = async (app: any) => {
           tokenURL: "https://api.twitter.com/2/oauth2/token",
           clientID: keys.x.clientID,
           clientSecret: keys.x.clientSecret,
-          callbackURL: "/auth/x/callback",
+          callbackURL: `${CALLBACK_BASE}/auth/x/callback`,
           scope: ["users.read"],
           passReqToCallback: true,
         },
@@ -283,7 +285,7 @@ export const initPassport = async (app: any) => {
         {
           clientID: process.env.AZURE_CLIENT_ID || "dummy-azure-id",
           clientSecret: process.env.AZURE_CLIENT_SECRET || "dummy-azure-secret",
-          callbackURL: "/auth/outlook/callback",
+          callbackURL: `${CALLBACK_BASE}/auth/outlook/callback`,
           identityMetadata: "https://login.microsoftonline.com/common/v2.0/.well-known/openid-configuration",
           responseType: "code",
           responseMode: "query",
@@ -315,7 +317,7 @@ export const initPassport = async (app: any) => {
         {
           clientID: keys.slack.clientID,
           clientSecret: keys.slack.clientSecret,
-          callbackURL: "/auth/slack/callback",
+          callbackURL: `${CALLBACK_BASE}/auth/slack/callback`,
           passReqToCallback: true,
         },
         async (req: any, at: string, rt: string, profile: any, done: any) => {

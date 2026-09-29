@@ -140,4 +140,3 @@ class OAuthProviderSerializer(serializers.ModelSerializer):
         fields = ('id', 'provider', 'client_id', 'client_secret', 'is_active',
                   'configured', 'config', 'status')
         read_only_fields = ('id', 'configured')
-        extra_kwargs = {'client_secret': {'write_only': True}}
