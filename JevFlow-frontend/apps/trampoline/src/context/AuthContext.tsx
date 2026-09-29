@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { resources } from "@vhrs/resources";
 import { useRItem } from "@vhrs/user-interfaces";
 
@@ -45,6 +45,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const loginReq = useRItem(resources._auth_, { url: "/auth/login/", fetchOnDeclare: false });
   const logoutReq = useRItem(resources._auth_, { url: "/auth/logout", fetchOnDeclare: false });
   const meReq = useRItem(resources._auth_, { url: "/auth/me", fetchOnDeclare: false });
+  const loginEpochRef = useRef(0);
 
   const logout = useCallback(async () => {
     try {
@@ -61,6 +62,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // with a dead session (that showed up as empty lists everywhere).
   useEffect(() => {
     let cancelled = false;
+    const checkEpoch = loginEpochRef.current;
     (async () => {
       const stored = readStoredUser();
       if (!stored) {
@@ -69,7 +71,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       try {
         const res = await meReq.fetchItems(true);
-        if (cancelled) return;
+        // If the user logged in while this probe was in flight, ignore it.
+        if (cancelled || loginEpochRef.current !== checkEpoch) return;
         const data = res?.data;
         if (data && (data.user || data.token)) {
           setUser(data.user || data);
@@ -78,9 +81,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setUser(null);
         }
       } catch {
-        if (!cancelled) setUser(null);
+        if (cancelled || loginEpochRef.current !== checkEpoch) return;
+        clearStoredUser();
+        setUser(null);
       } finally {
-        if (!cancelled) setIsLoading(false);
+        if (!cancelled && loginEpochRef.current === checkEpoch) setIsLoading(false);
       }
     })();
     return () => {
@@ -101,12 +106,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const data = res?.data ?? {};
     if (!data.token) throw new Error("Login failed");
     const u = data.user || data;
+    loginEpochRef.current += 1;
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(u));
     } catch {
       /* noop */
     }
     setUser(u);
+    setIsLoading(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

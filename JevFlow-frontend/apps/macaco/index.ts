@@ -23,6 +23,7 @@ app.get("/api/health-check", (_req: Request, res: Response) => {
 app.use(cookieParser("jevflow-secret"));
 
 const SESSION_MAX_AGE = 1000 * 60 * 60 * 24 * 7; // 7 days
+const SESSION_COOKIE_NAME = "jevflow.sid";
 
 async function buildSessionStore(): Promise<any | undefined> {
   // Redis-backed sessions so logins survive proxy restarts (the default
@@ -60,10 +61,17 @@ async function boot() {
   app.use(
     session({
       ...(store ? { store } : {}),
+      name: SESSION_COOKIE_NAME,
       secret: process.env.SESSION_SECRET || "jevflow-session-secret",
       resave: false,
       saveUninitialized: false,
-      cookie: { maxAge: SESSION_MAX_AGE },
+      rolling: true,
+      cookie: {
+        maxAge: SESSION_MAX_AGE,
+        httpOnly: true,
+        sameSite: "lax",
+        secure: false,
+      },
     })
   );
 
