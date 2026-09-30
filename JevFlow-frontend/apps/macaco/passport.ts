@@ -166,15 +166,15 @@ export const initPassport = async (app: any) => {
   const keys = await loadProviderKeys();
 
   if (isReal(keys.google)) {
-    passport.use(
-      new GoogleStrategy(
-        {
-          clientID: keys.google.clientID,
-          clientSecret: keys.google.clientSecret,
-          callbackURL: `${CALLBACK_BASE}/auth/google/callback`,
-          passReqToCallback: true,
-        },
-        async (req: any, at: string, rt: string, profile: any, done: any) => {
+  passport.use(
+    new GoogleStrategy(
+      {
+        clientID: keys.google.clientID,
+        clientSecret: keys.google.clientSecret,
+        callbackURL: `${CALLBACK_BASE}/auth/google/callback`,
+        passReqToCallback: true,
+      },
+      async (req: any, at: string, rt: string, profile: any, done: any) => {
           const email = profile?.emails?.[0]?.value || "";
           await socialLogin(
             req,
@@ -349,23 +349,41 @@ export const initPassport = async (app: any) => {
 export function registerAuthRoutes(app: any) {
   if ((passport as any)._strategy?.google || (passport as any)._strategies?.google) {
     app.get("/auth/google", passport.authenticate("google", { scope: ["email", "profile"] }));
-    app.get("/auth/google/callback", passport.authenticate("google", { failureRedirect: "/login" }), (req: any, res: any) => {
-      if (req.authPayload) req.session.user = req.authPayload;
-      res.redirect("/");
+    app.get("/auth/google/callback", passport.authenticate("google", { failureRedirect: "/login", session: false }), (req: any, res: any) => {
+      if (req.authPayload) {
+        req.session.user = req.authPayload;
+        return req.session.save((err: any) => {
+          if (err) console.error("[macaco] session save failed:", err);
+          res.redirect("/");
+        });
+      }
+      res.redirect("/login");
     });
   }
   if ((passport as any)._strategies?.github) {
     app.get("/auth/github", passport.authenticate("github", { scope: ["user:email"] }));
-    app.get("/auth/github/callback", passport.authenticate("github", { failureRedirect: "/login" }), (req: any, res: any) => {
-      if (req.authPayload) req.session.user = req.authPayload;
-      res.redirect("/");
+    app.get("/auth/github/callback", passport.authenticate("github", { failureRedirect: "/login", session: false }), (req: any, res: any) => {
+      if (req.authPayload) {
+        req.session.user = req.authPayload;
+        return req.session.save((err: any) => {
+          if (err) console.error("[macaco] session save failed:", err);
+          res.redirect("/");
+        });
+      }
+      res.redirect("/login");
     });
   }
   if ((passport as any)._strategies?.x) {
     app.get("/auth/x", passport.authenticate("x"));
-    app.get("/auth/x/callback", passport.authenticate("x", { failureRedirect: "/login" }), (req: any, res: any) => {
-      if (req.authPayload) req.session.user = req.authPayload;
-      res.redirect("/");
+    app.get("/auth/x/callback", passport.authenticate("x", { failureRedirect: "/login", session: false }), (req: any, res: any) => {
+      if (req.authPayload) {
+        req.session.user = req.authPayload;
+        return req.session.save((err: any) => {
+          if (err) console.error("[macaco] session save failed:", err);
+          res.redirect("/");
+        });
+      }
+      res.redirect("/login");
     });
   }
   app.get("/auth/outlook", (req: any, res: any) => {
@@ -376,9 +394,15 @@ export function registerAuthRoutes(app: any) {
   });
   if ((passport as any)._strategies?.slack) {
     app.get("/auth/slack", passport.authenticate("slack" as any));
-    app.get("/auth/slack/callback", passport.authenticate("slack" as any, { failureRedirect: "/login" }), (req: any, res: any) => {
-      if (req.authPayload) req.session.user = req.authPayload;
-      res.redirect("/");
+    app.get("/auth/slack/callback", passport.authenticate("slack" as any, { failureRedirect: "/login", session: false }), (req: any, res: any) => {
+      if (req.authPayload) {
+        req.session.user = req.authPayload;
+        return req.session.save((err: any) => {
+          if (err) console.error("[macaco] session save failed:", err);
+          res.redirect("/");
+        });
+      }
+      res.redirect("/login");
     });
   }
 }

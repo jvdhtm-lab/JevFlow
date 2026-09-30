@@ -64,7 +64,7 @@ async function boot() {
       name: SESSION_COOKIE_NAME,
       secret: process.env.SESSION_SECRET || "jevflow-session-secret",
       resave: false,
-      saveUninitialized: false,
+      saveUninitialized: true,
       rolling: true,
       cookie: {
         maxAge: SESSION_MAX_AGE,

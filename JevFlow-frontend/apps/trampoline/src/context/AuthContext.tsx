@@ -58,24 +58,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Validate any stored session on page load: never render authed pages
-  // with a dead session (that showed up as empty lists everywhere).
+  // Validate the server session on every page load. Social login never writes
+  // to localStorage, so we must ask macaco whether a session cookie exists.
   useEffect(() => {
     let cancelled = false;
     const checkEpoch = loginEpochRef.current;
     (async () => {
-      const stored = readStoredUser();
-      if (!stored) {
-        if (!cancelled) setIsLoading(false);
-        return;
-      }
       try {
         const res = await meReq.fetchItems(true);
         // If the user logged in while this probe was in flight, ignore it.
         if (cancelled || loginEpochRef.current !== checkEpoch) return;
         const data = res?.data;
         if (data && (data.user || data.token)) {
-          setUser(data.user || data);
+          const u = data.user || data;
+          setUser(u);
+          try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(u));
+          } catch {
+            /* noop */
+          }
         } else {
           clearStoredUser();
           setUser(null);
